@@ -5,6 +5,8 @@
 
 [← 03 Modules & registries](03-modules-and-registries.md) · [Index](../README.md) · [05 Authentication →](05-authentication.md)
 
+Infrastructure changes are uniquely dangerous in one regard: unlike application code, a broken deploy can leave the network in a half-configured state that affects every workload sitting on top of it. A solid branching and promotion model is the operational safety net — it determines how much blast radius is possible from a single commit, how quickly a rollback can happen, and whether auditors can trace who approved what. This chapter recommends a specific model, acknowledges the alternative honestly, and explains how to make promotion mechanics reliable rather than ceremonial.
+
 ---
 
 ## How we got here
@@ -23,7 +25,8 @@ question: environments are *folders containing manifests*, not branches
 proven at high‑scale shops, "one branch, folder per environment" became
 the dominant pattern by the early 2020s. The branch‑per‑environment model
 still survives in regulated industries that map approval to branches —
-usually because the auditors learned Git from a 2015 tutorial.
+usually because the auditors learned Git from a 2015 tutorial. Whichever
+history your team carries, the two questions below cut through the legacy.
 
 ## The two questions you must answer
 
@@ -31,7 +34,7 @@ usually because the auditors learned Git from a 2015 tutorial.
 2. **Environment promotion:** how do you guarantee that what was tested in
    non‑prod is what hits prod?
 
-The answers are coupled — choose them together.
+The answers are coupled — choose them together. For the vast majority of ALZ deployments, they resolve to the same place.
 
 ---
 
@@ -112,6 +115,8 @@ feature/* → ephemeral
 **Recommendation:** use it only if your compliance team mandates it. Even
 then, push back hard.
 
+Whichever branching model you commit to, the next question is what your environment estate actually looks like — how many environments, what each one is for, and who controls access to it.
+
 ---
 
 ## Environment topology
@@ -135,6 +140,8 @@ Rules:
 2. **Engineers can `apply` in sandbox.** Pipelines `apply` everywhere else.
 3. **Sandbox has aggressive lifecycle management.** Auto‑shutdown of VMs,
    nightly resource group cleanup, hard cost caps.
+
+With the environment set defined, the question is how a change moves between them without the canonical trap: "it worked in staging".
 
 ---
 
@@ -183,6 +190,8 @@ envs/
 When non‑prod is happy after a soak period, a PR bumps prod to `1.5.0`. The
 PR diff *is* the promotion.
 
+Of course, that PR diff only means something if the review process attached to it has teeth.
+
 ---
 
 ## PR requirements
@@ -216,6 +225,8 @@ For Terraform, drift detection runs are your only signal — invest in them.
 
 See also [11 manageability](11-manageability.md).
 
+There is, however, a complementary pattern that sidesteps long-lived environment drift entirely by making environments disposable.
+
 ---
 
 ## Ephemeral environments
@@ -247,6 +258,8 @@ expensive. It's a per‑PR slice of the modules being changed.
   foundation repos.
 
 ---
+
+With branching strategy, environment topology, and promotion mechanics in place, the structural decisions for your ALZ estate are largely complete. What remains are the operational details that determine whether the structure stays trustworthy over time: authentication (Chapter 05), security controls, state management, and drift response. Get the three foundational decisions right — topology, tooling, and promotion model — and the later chapters are refinement. Get any one of them wrong and no amount of clever pipeline YAML will compensate.
 
 ## References
 

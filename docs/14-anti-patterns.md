@@ -5,6 +5,8 @@
 
 [← 13 Documentation](13-documentation.md) · [Index](../README.md) · [References →](references.md)
 
+Thirteen chapters of design decisions, tradeoffs, and recommendations culminate here. This chapter is the consolidation — a catalogue of every significant mistake this guide has warned against, organised by the same categories you have been building through: repository structure, tooling, authentication, pipelines, modules, state, testing, and operations. Think of it as the final exam — not a test of whether you remember the theory, but a structured exercise in honestly assessing how close your current implementation is to the practices this guide advocates. No real-world ALZ implementation scores perfectly on first review; the point is to identify the gaps, prioritise them by risk, and address them through the same PR process as everything else. Read each item as a question: *Is this us?*
+
 ---
 
 ## Repository & code structure
@@ -162,6 +164,8 @@
   outage. The first time you do it should not be in production.
 
 ---
+
+Working through this list is most useful not as a one-time audit but as a recurring exercise — quarterly for a mature platform, monthly when the estate is growing quickly. When you find an anti-pattern you are currently living with, resist the temptation to note it privately and move on. Open an issue, assign an owner, and track its remediation alongside everything else the team ships. The self-assessment below gives you a structured framework for that conversation — a score honest enough to be useful and specific enough to drive action.
 
 ## A "is your repo healthy?" self‑assessment
 

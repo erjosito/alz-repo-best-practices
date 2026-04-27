@@ -11,6 +11,16 @@ out explicitly.
 
 ---
 
+## Why this guide exists
+
+When the first Azure Landing Zone accelerators appeared in 2020–2021, most enterprise teams focused on the *content* of the landing zone: which policies to apply, how to structure management groups, which connectivity model to adopt. The *repository* that would host and maintain that content was treated as an afterthought — a place to put ARM templates or Terraform files before the real work began. Years later, those same teams found the infrastructure code was solid but the operational model around it had accumulated technical debt that was genuinely hard to pay down: long-lived pipeline secrets that could not be rotated without downtime, state files covering entire environments with no blast-radius control, naming conventions that existed only in a Confluence page nobody had updated since 2022, and modules copy-pasted so many times that fixing a bug meant finding every copy first.
+
+This guide exists to address the repository and operating model — not the policy library or the network topology, but the decisions that determine whether your ALZ implementation remains manageable at year three as much as at day one. It draws on official Microsoft guidance, community patterns from the IaC ecosystem, and the lessons of platform engineering teams that have operated Azure estates at enterprise scale. The "How we got here" narratives at the start of each chapter trace how the industry's tooling and thinking evolved to produce the current best practices — so you understand not just *what* to do, but *why* the field landed there.
+
+It is written for platform engineers and DevOps architects who are either building a new ALZ implementation or inheriting one that needs to be brought up to a higher standard. If you are starting fresh, read the chapters in order. If you are inheriting an existing estate, start with the TL;DR below and Chapter 14 — the anti-pattern checklist is the fastest way to identify where the most pressing technical debt lives.
+
+---
+
 ## How to read this guide
 
 The chapters are loosely ordered from "high‑level strategy" to

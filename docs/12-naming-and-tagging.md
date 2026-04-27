@@ -5,6 +5,8 @@
 
 [← 11 Manageability](11-manageability.md) · [Index](../README.md) · [13 Documentation →](13-documentation.md)
 
+Every process in a well-run Azure estate — cost reporting, security automation, decommissioning, disaster recovery — relies on one assumption: that a resource's name and tags are trustworthy, consistent, and machine-readable. This chapter argues that naming and tagging are not housekeeping but infrastructure, and that the only way to treat them as such is to encode them in code and enforce them with policy.
+
 ---
 
 ## How we got here
@@ -33,6 +35,8 @@ costs you forever.
 
 The opposite is also true: an over‑engineered convention nobody can remember
 gets violated immediately. Aim for **rigorous but humane**.
+
+With the case for rigour established, here is what rigour looks like in practice — starting with the naming convention itself.
 
 ---
 
@@ -111,6 +115,8 @@ Or for Bicep, the [Azure naming Bicep module](https://github.com/nianton/azure-n
 Either way, **never let humans type the name into a parameter file** —
 typos become permanent.
 
+A consistent naming convention tells you what a resource *is*. A consistent tagging convention tells you who it belongs to, what it costs, and how automation should treat it. The two are complementary, and both require the same discipline.
+
 ---
 
 ## Tagging convention
@@ -185,6 +191,8 @@ Resources
 Send the count + worst offenders to a dashboard; gate the next quarterly
 budget on improvement.
 
+Resource-level naming and tagging address the workload layer. The same principles apply one level up, where management groups and subscriptions form the structural skeleton of the tenant — and where an inconsistent naming scheme will haunt your governance queries for years.
+
 ---
 
 ## Management group / subscription naming
@@ -216,6 +224,8 @@ sub-sandbox-jdoe
 ```
 
 Document the tree in the foundation repo's `docs/management-groups.md`.
+
+Management group and subscription names establish *what* things are and *whose* they are. Region strategy is a natural extension of the same discipline: capping the allowed set of deployment locations is one of the simpler, highest-leverage policy decisions you will make.
 
 ---
 
@@ -262,6 +272,8 @@ sandbox.
   refactor — costs days of pipeline work per resource type.
 
 ---
+
+Naming and tagging may feel like administrative overhead until the day someone asks "which team owns this resource, and what does it cost them?" and the answer cannot be retrieved in under thirty seconds. Enforce the convention from day one — it is genuinely cheaper to build right than to rename a thousand resources later. The next chapter turns to the documentation that explains *why* all these decisions were made, so the engineer who joins two years from now understands the system rather than simply inheriting it.
 
 ## References
 

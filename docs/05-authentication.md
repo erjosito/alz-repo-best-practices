@@ -7,6 +7,8 @@
 
 ---
 
+Every pipeline that deploys to Azure needs to prove its identity. For years that proof came in the form of a secret — a certificate or client secret tucked into an environment variable, one careless `git push` away from a breach report. This chapter shows how to eliminate that secret entirely using workload identity federation, how to scope the resulting access to the minimum blast radius, and how to make your audit trail actually useful.
+
 ## How we got here
 
 The history of pipeline auth to Azure is a sequence of *reactions to
@@ -40,6 +42,8 @@ supported and removes the entire class of "leaked secret" incidents.
 ---
 
 ## What to use, by runner
+
+The mechanism varies by CI platform, but the principle is uniform: federate whenever possible, use managed identity for Azure‑hosted runners, and reserve interactive `az login` for humans.
 
 | Runner | Recommended | How |
 |--------|-------------|-----|
@@ -146,6 +150,8 @@ Note: those values can be in `vars` (not `secrets`) — they aren't sensitive.
 
 ## SPN vs Managed Identity vs User‑Assigned MI with federation
 
+OIDC works with more than one identity type, and the choice carries security implications beyond mere convenience.
+
 | Identity type | Used for | Notes |
 |---------------|----------|-------|
 | Service Principal (app registration) | GitHub / ADO / GitLab pipelines | Add a federated credential — no secret. |
@@ -186,6 +192,8 @@ Granting at the management group scope cascades to all subscriptions inside.
 For landing‑zone identities, prefer subscription‑scope grants — they're more
 auditable.
 
+That covers the Azure plane. Landing zone pipelines, however, rarely speak to ARM alone — they also interact with GitHub APIs, container registries, secret stores, and third‑party tooling.
+
 ---
 
 ## Authenticating to other systems
@@ -203,6 +211,8 @@ Pipelines often need more than just Azure:
 The principle is the same: **federate or use an issued token, never store a
 long‑lived secret.**
 
+Pipelines are only one half of the authentication picture. The engineers who trigger, debug, and approve them need their own distinct identity path — one that never crosses with the deploy SPN.
+
 ---
 
 ## Developer access
@@ -215,6 +225,8 @@ Engineers should **never** hold the same identity as a pipeline. Patterns:
   assignment on the sandbox subscription* via PIM.
 * Production access for break‑glass: a dedicated emergency account, MFA,
   PIM‑elevated, with full audit alerting. Not the deploy SPN.
+
+Keeping humans and pipelines on separate identities is a prerequisite for meaningful audit. Here is what that audit should actually monitor.
 
 ---
 
@@ -258,6 +270,8 @@ subscription), not in Entra.
   for "lab access". Always individual identities.
 * ❌ **No alerting on the deploy SPN.** You'd never know if it was abused.
 * ❌ **Same SPN used by humans and pipelines.** Audit becomes impossible.
+
+Authentication is the gate that governs everything else in this book. Get it wrong and every other control becomes optional — a determined attacker holding a long‑lived Owner secret can undo your policy assignments, drain your state storage, and cover their tracks before morning. Get it right with OIDC federation, scoped identities, and PIM‑gated human access, and the controls in the next chapter become substantially cheaper to enforce. Chapter 06 builds on this foundation to address secrets that genuinely do need to be stored, the integrity of the artefacts your pipeline produces, and the supply‑chain risks that no authentication scheme alone can neutralise.
 
 ---
 

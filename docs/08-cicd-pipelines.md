@@ -6,6 +6,8 @@
 
 [← 07 State management](07-state-management.md) · [Index](../README.md) · [09 Testing & policy →](09-testing-and-policy.md)
 
+Every commit that touches IaC code starts a race: will the pipeline catch the problem, or will it reach production? This chapter is about structuring that pipeline so the answer is reliably the former. By the end, you will have a working mental model of the two-workflow shape, reusable pipeline templates, and the operational patterns — retry, break-glass, caching — that separate a mature IaC pipeline from a fragile script held together with `sleep 30`.
+
 ---
 
 ## How we got here
@@ -24,7 +26,8 @@ sync. Around the same time, the GitOps community pushed the idea of
 **ephemeral, short‑lived runners** — and after a string of self‑hosted
 runner compromises in 2022–2024, that became the security baseline. The
 patterns in this chapter assume reusable workflows, ephemeral runners,
-and OIDC auth — the consensus shape of an IaC pipeline in 2026.
+and OIDC auth — the consensus shape of an IaC pipeline in 2026. Before
+getting into those patterns, one question needs settling: which platform?
 
 ## GitHub Actions vs Azure DevOps Pipelines
 
@@ -45,7 +48,8 @@ strong reason — the cognitive overhead of two pipeline syntaxes outweighs
 any feature delta.
 
 The patterns below are illustrated with **GitHub Actions**; the same shape
-works in ADO.
+works in ADO. Whichever you choose, the anatomy is the same — and it fits
+in two files.
 
 ---
 
@@ -228,6 +232,8 @@ Plan output dumped raw into a comment is unreadable. Format it:
 Use the `hashicorp/setup-terraform` Action's built-in PR comment mechanism,
 or roll your own with `actions/github-script`.
 
+A readable plan comment is half the story. The other half is making sure the pipeline only plans the things that actually changed — which is where the detect script earns its keep.
+
 ---
 
 ## Detecting changed environments
@@ -253,6 +259,8 @@ explodes it into parallel jobs. Touched modules trigger plan runs in
 **every** consumer environment of that module — implement that with a
 module‑to‑consumer map maintained in the repo.
 
+Detection gives you scale; the next challenge is keeping a growing fleet of repos from drifting apart.
+
 ---
 
 ## Pipeline‑as‑code, but DRY
@@ -268,6 +276,8 @@ Patterns to keep many repos consistent:
   checks you can't allow to be removed.
 * **Renovate** / Dependabot to bump the pinned `@vX.Y.Z` references in
   every consumer when you ship a new template version.
+
+Keeping workflows DRY solves the consistency problem. The next challenge is reliability: Azure is eventually consistent, and some operations simply fail on first attempt.
 
 ---
 
@@ -298,6 +308,8 @@ You will need it. Build one consciously:
 
 This is far better than engineers running Terraform locally against
 production state.
+
+With the operational edge cases handled, there are some cheap wins on raw speed that cost almost nothing to add.
 
 ---
 
@@ -330,6 +342,8 @@ A few cheap wins:
   An in‑flight `apply` should always finish; cancellation can corrupt state.
 * ❌ **One pipeline that deploys all environments serially in one run.**
   Use environment gates between non‑prod and prod, not a long script.
+
+The patterns in this chapter give the pipeline its shape. What that pipeline *validates* — the static checks, policy assertions, and integration tests — is the subject of the next chapter. A fast, well-structured pipeline running weak checks still lets bad changes through; what you run inside the workflow matters as much as how the workflow is arranged.
 
 ---
 

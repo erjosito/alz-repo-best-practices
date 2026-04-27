@@ -5,6 +5,8 @@
 
 [← 01 Repository topology](01-repository-topology.md) · [Index](../README.md) · [03 Modules & registries →](03-modules-and-registries.md)
 
+Choosing between Bicep and Terraform has launched more heated team debates than almost any other IaC decision. Behind the enthusiasm, the real question is operational: which tool will your team still be maintaining confidently — under pressure, at an unglamorous 2 a.m. — in three years? This chapter walks through each contender honestly, including where each one quietly fails, and gives you a decision framework for estates ranging from single-cloud greenfields to messy multi-cloud realities.
+
 ---
 
 ## How we got here
@@ -26,6 +28,8 @@ honest answer to "Bicep or Terraform?" is "whichever your team will still
 be operating well at 2 a.m." — both are first‑class on Azure in 2026.
 
 ## TL;DR recommendation
+
+The short version, before we go deeper into each tool's strengths and failure modes:
 
 | Layer | Recommended | Acceptable alternative |
 |-------|-------------|------------------------|
@@ -126,6 +130,8 @@ These aren't an engine choice — they're a *starting point*:
 You should **fork or wrap** an accelerator, not consume it raw — see
 [03 modules & registries](03-modules-and-registries.md).
 
+With all the options on the table, the practical question is which combination actually fits your team and organisation.
+
 ---
 
 ## Decision criteria
@@ -159,6 +165,8 @@ Stacks removes that burden entirely.
 `terraform plan` is more accurate than `az deployment what-if` today, although
 the gap has narrowed considerably with Bicep's
 [`what-if` improvements](https://learn.microsoft.com/azure/azure-resource-manager/templates/deploy-what-if).
+
+If the criteria above still leave you genuinely split — often because different platform layers are owned by teams with different skill sets — a bilingual estate is sometimes the honest answer.
 
 ---
 
@@ -267,6 +275,8 @@ different questions.
 
 ## Anti‑patterns
 
+Most IaC tool mistakes fall into two camps: picking a tool for the wrong reasons, or letting two engines drift into each other's territory. The recurring offenders:
+
 * ❌ **Authoring ARM JSON by hand.** Use Bicep and `az bicep decompile` to
   migrate any inherited templates.
 * ❌ **Two engines managing overlapping resources.** Drift wars; pick a side.
@@ -276,6 +286,8 @@ different questions.
 * ❌ **Pulumi without a programming culture.** It will rot into spaghetti.
 
 ---
+
+With the toolchain chosen, the estate has a shape (Chapter 01) and a language (this chapter). The missing link is reuse: how do you avoid writing the same VNet module for each team that needs one, and how do you update it across 40 consumers without a week of coordinated PRs? Chapter 03 covers the module and registry architecture that turns "we have IaC" into "we have a maintainable IaC estate". The take-home from this chapter is simple: pick the engine your team owns confidently, keep it consistent within a layer, and put any deviation in writing.
 
 ## References
 

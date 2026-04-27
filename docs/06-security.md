@@ -7,6 +7,8 @@
 
 ---
 
+Authentication stops the obvious attacker — the one who shouldn't have the key at all. But a mature IaC pipeline has a wider threat surface: secrets that drift into source code, dependencies quietly poisoned upstream, and runners that, if compromised, can cause more damage than a leaked credential ever could. This chapter addresses that surface systematically, working outward from your own code to the third‑party pieces your pipeline trusts.
+
 ## How we got here
 
 For a long time, "secrets management" in IaC meant *"don't commit them"*
@@ -24,6 +26,8 @@ had pinned by *tag* rather than by *commit SHA*. The response is the
 defence‑in‑depth model this chapter describes: keep secrets out of code,
 sign what you ship (Sigstore, SLSA attestations), pin every dependency
 by digest, and assume your CI runner will eventually be compromised.
+
+Those four imperatives map directly to the attack vectors worth defending against.
 
 ## The threat model
 
@@ -96,6 +100,8 @@ public the moment it was pushed.
 
 ## Branch protection that matters
 
+Keeping secrets out of the codebase is necessary but not sufficient. The second line of defence is ensuring that a compromised contributor account still cannot merge a malicious change unilaterally.
+
 | Setting | Recommended |
 |---------|-------------|
 | Require PR before merge | ✅ |
@@ -111,6 +117,8 @@ public the moment it was pushed.
 
 GitHub's **rulesets** let you apply these across all repos in an org —
 prefer rulesets over per‑repo branch protection for consistency.
+
+With your own contributors controlled, the remaining attack surface is the code you *don't* own: the Actions, modules, and tools your pipeline fetches from the internet.
 
 ---
 
@@ -214,6 +222,8 @@ foundation/prod deploys. Self‑hosted runners must be:
 
 ## Workflow hardening (GitHub Actions)
 
+Securing the runner infrastructure is necessary but not sufficient — the workflow YAML itself is an attack surface. A handful of settings make an outsized difference.
+
 Top hits from `actionlint` + experience:
 
 ```yaml
@@ -239,6 +249,8 @@ jobs:
 
 Run `actionlint` and `zizmor` (workflow security scanner) in CI.
 
+Even a hardened, well‑scoped workflow produces an artefact that deserves its own security treatment: the Terraform state file.
+
 ---
 
 ## State file security (Terraform)
@@ -255,6 +267,8 @@ storage keys, certs. Treat the state backend as you would a Key Vault:
 * Never download state to a developer laptop.
 
 Details in [07 state management](07-state-management.md).
+
+Locking down the artefacts your pipeline produces addresses one dimension of compliance. The other is preventing those artefacts from representing non‑compliant configurations in the first place.
 
 ---
 
@@ -299,6 +313,8 @@ need it, you won't have time to invent it.
   GitHub App with fine‑grained, time‑limited installation tokens.
 * ❌ **Disabling `terraform plan` policy checks "just for this PR".** It
   becomes permanent.
+
+Security is not a single gate but a set of overlapping controls, each assuming the others will occasionally fail. The practices in this chapter — eliminating secrets at source, hardening runners and workflows, signing artefacts, and enforcing policy checks before merge — are most valuable precisely because no single one of them is foolproof. Chapter 07 shifts focus from the pipeline itself to what the pipeline produces: the state files and deployment stacks that record the current shape of your Azure estate, and which carry their own considerable operational risk if you get the topology wrong.
 
 ---
 

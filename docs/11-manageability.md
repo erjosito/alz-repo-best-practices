@@ -5,6 +5,8 @@
 
 [← 10 Code quality](10-code-quality.md) · [Index](../README.md) · [12 Naming & tagging →](12-naming-and-tagging.md)
 
+The real test of any ALZ implementation is not whether the first `apply` succeeds — it's whether the system stays coherent under the steady pressure of operational reality: teams bypassing the pipeline "just this once", subscriptions that were meant to be temporary becoming permanent, and identities that quietly accumulate permissions like barnacles. This chapter tackles the day-2 problem head-on, covering ownership governance, drift detection, blast-radius control, lifecycle management, and the humble runbook that saves you at 2 a.m.
+
 ---
 
 ## How we got here
@@ -52,6 +54,8 @@ Combine with **branch protection** that *requires* CODEOWNERS review.
 Without that requirement, CODEOWNERS is informational only.
 
 Review the file quarterly — leavers, reorgs, retired apps.
+
+Ownership governance tells you *who* must approve a deliberate change — but it says nothing about changes that never went through the PR process at all. Detecting those requires something more active.
 
 ---
 
@@ -103,6 +107,8 @@ Triage:
 3. **Always investigate why** — drift indicates a process gap. Maybe a
    policy is missing, maybe an engineer doesn't know the rules.
 
+Detecting drift is valuable; limiting how much damage a single bad change can cause is equally important. The structural approaches to keeping your blast radius small are the subject of the next section.
+
 ---
 
 ## Blast radius management
@@ -153,6 +159,8 @@ For Key Vault, Storage, and similar — enable soft delete and purge
 protection unconditionally in your modules. Recovery beats prevention when
 the worst happens.
 
+Architectural controls limit the structural blast radius. But those controls are only as strong as the identities that hold the keys to the pipeline — which makes RBAC for the IaC system itself equally worth examining.
+
 ---
 
 ## RBAC for the IaC system itself
@@ -177,6 +185,8 @@ AuthorizationResources
 ```
 
 Send the diff vs last week to the security team.
+
+Role assignments are a snapshot of *who can do what right now*. The complementary concern is the lifecycle of the resources those identities manage — landing zones are created, evolve, and should be retired cleanly when they are no longer needed.
 
 ---
 
@@ -221,6 +231,8 @@ Two viable patterns:
 Either way, **the subscription belongs to the foundation/platform repo**,
 not the workload repo. The workload repo only consumes the subscription ID.
 
+A well-defined lifecycle tells you *what* needs to happen at each stage. A runbook tells you *exactly how* — step by step, copy-pasteable — so that an operation works the first time it is needed, under pressure, by someone who may not have done it before.
+
 ---
 
 ## Runbooks (in‑repo)
@@ -246,6 +258,8 @@ Each runbook has:
 
 These get used at 2 a.m. Make them findable, terse, and tested.
 
+Runbooks address the sudden, high-pressure operational events. Cost management addresses the opposite: the slow, silent accumulation of spend that nobody notices until the monthly finance review lands in someone's inbox.
+
 ---
 
 ## Cost & usage management
@@ -261,6 +275,8 @@ Cost is a manageability concern; surface it in the repo:
   template includes a "cost impact" field; reviewer asks for an estimate
   using the [Azure Pricing Calculator](https://azure.microsoft.com/pricing/calculator/).
 * Set **subscription budgets** in IaC; alert at 50/75/90 % to the LZ owner.
+
+Knowing what your infrastructure costs is one signal. Knowing how the system that *deploys* that infrastructure is behaving is another — and the pipeline deserves the same observability treatment as any other production service.
 
 ---
 
@@ -295,6 +311,8 @@ The pipeline is a service; treat it as one:
   Either it goes through code, or your code is no longer authoritative.
 
 ---
+
+Manageability is where the gap between "it worked on day one" and "it still works reliably at year three" lives. The practices in this chapter — ownership via CODEOWNERS, scheduled drift detection, Deployment Stacks to block drift at the ARM layer, PIM-bounded access, structured landing-zone lifecycles, in-repo runbooks, and pipeline observability — do not all need to be in place before you ship. Start with drift detection and CODEOWNERS; the rest grows naturally as the estate matures. Chapter 12 turns to the seemingly mundane but genuinely load-bearing question of what you call things — and what metadata travels with them.
 
 ## References
 

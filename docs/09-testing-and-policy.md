@@ -5,6 +5,8 @@
 
 [← 08 CI/CD pipeline patterns](08-cicd-pipelines.md) · [Index](../README.md) · [10 Code quality →](10-code-quality.md)
 
+A pipeline that merely runs `terraform apply` is a deployment button, not a quality gate. What separates a mature IaC workflow from a fragile one is everything that happens *before* the apply: the linting that catches silly mistakes, the policy check that enforces enterprise rules, and the integration test that proves the module actually works. This chapter maps out that defence-in-depth pyramid and explains where each layer pays its way.
+
 ---
 
 ## How we got here
@@ -26,7 +28,8 @@ finally landed in Terraform 1.6 (October 2023), making real integration
 testing accessible to anyone who could write HCL. The result: the modern
 IaC pipeline is a **defence‑in‑depth pyramid** — static linting, plan‑
 time policy, integration tests on modules, and runtime Azure Policy as
-the safety net.
+the safety net. Here is what that pyramid looks like in practice, and
+where each layer belongs.
 
 ## The testing pyramid for IaC
 
@@ -75,6 +78,8 @@ Run on every developer machine via pre‑commit and again in CI.
 * `actionlint` for GitHub Actions; `zizmor` for Actions security audit.
 * `markdownlint` for docs.
 * Run them all from a single `pre-commit` config — one file, one mental model.
+
+Static checks catch what the *author* got wrong. The next layer enforces what the *organisation* requires — and that is an entirely different problem.
 
 ---
 
@@ -167,6 +172,8 @@ is_sandbox(plan) {
 conftest test --policy ./policies tfplan.json
 ```
 
+Plan-time policy stops non-compliant configuration from ever touching Azure. For well-isolated modules, though, you want to go one step further and prove the thing actually deploys and behaves correctly under real conditions.
+
 ---
 
 ## Layer 3 — Live integration tests
@@ -210,6 +217,8 @@ run "creates_hub_vnet" {
   dedicated test subscription.
 * **Workload repos:** integration tests are usually unnecessary if your
   modules are well‑tested. Plan/policy checks suffice.
+
+At this point you have checks at every stage of development. There is still a gap: what prevents someone creating a non-compliant resource directly through the portal? That is where Azure Policy comes in — and it needs to stay in sync with everything above.
 
 ---
 
@@ -271,6 +280,8 @@ Pragmatic, not dogmatic:
 | Custom Azure Policy | Compliance test against a fixture resource that should pass + a fixture that should fail |
 | Pipeline templates | Unit test the templates with `act` or by running them against a sample repo |
 
+These targets are intentionally conservative. A 45-minute test suite that engineers skip is worse than no tests at all — so cut scope ruthlessly, parallelise what remains, and treat build time as a metric worth watching.
+
 ---
 
 ## Anti‑patterns
@@ -285,6 +296,8 @@ Pragmatic, not dogmatic:
   names.** Two PRs run simultaneously → name collision → both fail.
 * ❌ **Tests that take 45 minutes.** Engineers will avoid them. Parallelise
   or trim coverage.
+
+The discipline of layered validation ultimately comes down to shortening the feedback loop: moving pain from the 4 AM incident to the 30-second pre-commit hook. Once that loop is tight, the question shifts to the *experience* of working inside the repo day-to-day — which is the subject of the next chapter.
 
 ---
 

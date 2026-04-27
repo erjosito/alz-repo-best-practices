@@ -6,6 +6,8 @@
 
 [← 12 Naming & tagging](12-naming-and-tagging.md) · [Index](../README.md) · [14 Anti‑patterns →](14-anti-patterns.md)
 
+Code tells you *what* the system does. Documentation tells you *why* it does it, *how* to change it safely, and *where* to start when everything is on fire. Most IaC repos skimp on all three — and then wonder why onboarding takes three months and runbooks get executed incorrectly under pressure. This chapter sets out a disciplined, minimal approach to documentation that lives in the repo, decays slowly, and actually gets used.
+
 ---
 
 ## How we got here
@@ -27,6 +29,8 @@ and **Excalidraw** gave teams text‑based architecture diagrams; and
 IaC repo's docs/ folder is a small, disciplined library — not a
 dumping ground.
 
+Not every piece of content that belongs in that library is the same kind of thing — and treating them as interchangeable is the first step towards a docs folder nobody trusts. The Diátaxis framework provides a useful taxonomy.
+
 ## The four kinds of documentation
 
 Inspired by the [Diátaxis framework](https://diataxis.fr/) — every piece of
@@ -40,6 +44,8 @@ documentation should be exactly one of:
 | **Explanation** | Understand *why* | `docs/adr/`, this guide |
 
 Mixing types in one document is the most common documentation failure.
+
+With the taxonomy established, it is worth working through the documents themselves — starting with the one every reader encounters first.
 
 ---
 
@@ -79,6 +85,8 @@ Platform engineering · #alz-platform · platform@contoso.com
 ```
 
 Anything more goes behind a link. Long READMEs go unread.
+
+A good README is a table of contents for the rest of the documentation. The most important item it should point to is the ADR log — the record of *why* the system is built the way it is, without which every architectural choice becomes oral tradition that disappears when the original architect leaves.
 
 ---
 
@@ -130,6 +138,8 @@ Tools:
 * [`adr-tools`](https://github.com/npryce/adr-tools) — `adr new "Topology"`.
 * [`log4brains`](https://github.com/thomvaill/log4brains) — renders ADRs as
   a static site.
+
+ADRs capture decisions in prose; some decisions — particularly around network topology and identity flows — are better expressed visually. The challenge is keeping those visuals version-controlled and diffable, rather than letting them become the same undiffable artefacts as the Word documents they replaced.
 
 ---
 
@@ -271,6 +281,8 @@ Removable when the upstream issue is closed.
 Comments belong in code only when they explain *what* the code does in a
 way the code cannot. *Why* belongs in commits and ADRs.
 
+The discipline of routing *why* through commits and ADRs rather than code comments is the capstone of a documentation culture. The anti-patterns below catalogue the ways that culture most commonly collapses in practice.
+
 ---
 
 ## Anti‑patterns
@@ -287,6 +299,8 @@ way the code cannot. *Why* belongs in commits and ADRs.
   authoritative implementation; docs explain *why* and *how to use*.
 
 ---
+
+Documentation is not a deliverable that ships alongside the code — it is the medium through which the code communicates its intent to the engineers who will work with it for the next five years. The practices in this chapter — Diátaxis-informed structure, immutable ADRs, generated reference docs, version-controlled runbooks, and an onboarding checklist that improves with every new joiner — require no heroic effort. They require the same discipline applied to everything else in this guide: a clear convention, enforced consistently, with the repo as the single source of truth. That discipline is the thread running through all fourteen chapters; the next and final chapter draws it together in a consolidated checklist of everything that can go wrong — and how to check whether it already has.
 
 ## References
 

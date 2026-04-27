@@ -5,6 +5,8 @@
 
 [← 09 Testing & policy](09-testing-and-policy.md) · [Index](../README.md) · [11 Manageability →](11-manageability.md)
 
+Good infrastructure code doesn't just work — it's readable, self-documenting, and easy to contribute to. The best IaC teams treat developer experience as a first-class engineering concern, not an afterthought bolted on when onboarding gets painful. This chapter covers the tools and conventions that collapse the time from `git clone` to productive contribution, and the automation that keeps quality high without relying on humans to remember.
+
 ---
 
 ## How we got here
@@ -23,7 +25,7 @@ extension, and every shell helper in one JSON file and have CI use the
 discipline to engineers who don't want a container around their editor.
 A mature ALZ repo in 2026 should let a new joiner go from `git clone` to
 a green `plan` in under five minutes — and that's not aspirational, it's
-table stakes.
+table stakes. The question is what it actually takes to get there.
 
 ## The "five‑minute onboarding" target
 
@@ -89,6 +91,8 @@ node      = "20.18.0"
 ```
 
 Engineers run `mise install` once and have the same versions as CI.
+
+Pinning the tools solves the "which version?" problem. The next step is making those tools easy to invoke without memorising long incantations.
 
 ---
 
@@ -181,6 +185,8 @@ repos:
 Run the **same hooks in CI** — `pre-commit run --all-files` — so what's
 caught locally and what's caught in CI is identical.
 
+Hooks handle the checks. Documentation is a different discipline — and the kind that degrades fastest when it has to be maintained by hand.
+
 ---
 
 ## Auto‑generated module documentation
@@ -238,6 +244,8 @@ Tools:
 The benefit compounds: every consumer's Renovate bot can post a
 "v1.5.0 → v1.6.0" PR with the changelog inline.
 
+Structured commits make the changelog practically free. The remaining pieces of the DX puzzle are smaller but worth locking down: editor settings that prevent trivial formatting noise, and templates that shape what contributions look like before they hit the pipeline.
+
 ---
 
 ## Editor configuration
@@ -281,6 +289,8 @@ template repository** + `gh repo create --template` gives every new repo:
 
 For more sophisticated scaffolding (with prompts), use **Backstage
 templates** or [`copier`](https://copier.readthedocs.io/).
+
+Templates provision the repo. The next layer shapes how contributions land in it.
 
 ---
 
@@ -343,6 +353,8 @@ Engineers should be able to safely experiment:
   audit trail.
 * ❌ **Devcontainer that nobody uses.** Make it the *only* supported path
   — including for CI — and it stays maintained.
+
+Developer experience is the invisible multiplier: when a team can move fast and confidently, the quality of every other practice in this book improves. The Makefile runs the tests, the hooks run the linters, the devcontainer keeps the tools consistent, and the PR template makes the right information the default — all of it compounding quietly. The next chapter turns from how you build and ship the platform to how you keep it observable and manageable once it is running in production.
 
 ---
 

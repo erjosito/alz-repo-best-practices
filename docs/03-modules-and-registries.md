@@ -5,6 +5,8 @@
 
 [← 02 IaC tooling](02-iac-tooling.md) · [Index](../README.md) · [04 Branching & environments →](04-branching-and-environments.md)
 
+Sooner or later every IaC team writes the same storage account module twice. The second time, someone notices. By the fifth time, the variations have accumulated enough subtle differences that a "simple consolidation" becomes a multi-sprint migration. Modules and registries exist to break that cycle — but only if the versioning and distribution story is solved upfront. This chapter explains the three-tier model, how to choose where your modules live, and how to version and promote them without grinding platform delivery to a halt.
+
 ---
 
 ## How we got here
@@ -60,6 +62,8 @@ is the most common mistake.
 If your landing‑zone code is calling AVM resource modules directly, you have
 no place to enforce your enterprise conventions, and every team will
 reinvent them.
+
+The good news for tier 1 is that the work has largely been done for you.
 
 ---
 
@@ -118,7 +122,7 @@ module "storage" {
 
 ## Where do *your* (tier‑2) modules live?
 
-Three viable patterns:
+AVM handles tier 1. The tier‑2 pattern modules — the ones that bake in your enterprise conventions — are yours to build and publish. Three viable patterns for where they live:
 
 ### A) Dedicated `alz-modules` repo + Git tag versioning
 
@@ -151,6 +155,8 @@ audit trail per pull.
 
 For Terraform, you can publish to the public Terraform Registry if your
 modules are open source. Rare for enterprises.
+
+Whichever distribution mechanism you choose, it is only as trustworthy as the versioning discipline behind it.
 
 ---
 
@@ -192,6 +198,8 @@ Bumping a tier‑2 module that 40 landing zones consume needs a process:
    minor, 90 days for major).
 5. Deprecation: the module repo's CHANGELOG flags removal in `v2.0.0`; an
    automated check in the platform pipeline reports stragglers.
+
+A versioning process only works reliably if the modules themselves are well-structured. What that actually means in practice:
 
 ---
 
@@ -241,6 +249,8 @@ Module names should describe **the pattern**, not the resource. `hub` is
 better than `vnet-hub-firewall-bastion-routetable` — but the README should be
 explicit about what's inside.
 
+Naming discipline is one safeguard against entropy; the following are the patterns that entropy most reliably produces.
+
 ---
 
 ## Anti-patterns
@@ -255,6 +265,8 @@ explicit about what's inside.
   a `MIGRATION.md` for breaking changes.
 
 ---
+
+A mature module ecosystem — tiered correctly, versioned strictly, and published from a registry — is what makes the branching and promotion strategies in the next chapter operationally safe. Without pinned modules, "it worked in non-prod" is a coincidence rather than a guarantee; with them, the diff between environments is visible, auditable, and reversible. Chapter 04 picks up the story at the branch level, addressing how code flows from a developer laptop all the way to a production subscription.
 
 ## References
 

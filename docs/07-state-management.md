@@ -8,6 +8,8 @@
 
 ---
 
+State is where Terraform keeps its map of the world. It is also, historically, where teams have kept their worst secrets, their most spectacular outages, and their longest Friday evenings. This chapter shows how to design a state topology that contains blast radius, harden the backend that stores it, and — for those on Bicep — how Deployment Stacks offer an escape from the problem entirely.
+
 ## How we got here
 
 The earliest Terraform shops kept `terraform.tfstate` on the engineer's
@@ -29,6 +31,8 @@ removing this line do?" Microsoft's answer was **Deployment Stacks**
 (GA 2024), which give you Terraform‑style guarantees with no state file
 to operate. The chapter covers both worlds.
 
+Understanding why state management matters operationally is best approached by considering how badly it can go wrong.
+
 ## Why this is not a footnote
 
 State is the **most operationally dangerous** part of Terraform. A corrupt
@@ -43,9 +47,13 @@ shape right up front:
 
 For Bicep, **Deployment Stacks** play the same role: scope = blast radius.
 
+With the principles established, the next question is which backend configuration satisfies them.
+
 ---
 
 ## Terraform backend choice
+
+Not all backends are created equal for enterprise use. The choice affects locking behaviour, authentication options, network isolation, and whether your OIDC story carries through end to end.
 
 | Backend | Recommendation |
 |---------|----------------|
@@ -119,6 +127,8 @@ sufficient and battle‑tested. Behaviour:
   in GitHub Actions) so you never enqueue two `apply`s for the same state.
 * If a job fails mid‑apply, the next job blocks on lock, alerts the team,
   and someone investigates *before* force‑unlocking.
+
+Locking prevents the concurrent‑apply catastrophe. The complementary concern is the sheer amount of infrastructure a single apply can reach — which is entirely a function of how you carve your state files.
 
 ---
 
@@ -200,6 +210,8 @@ publishes.
 For Bicep, the equivalent is `existing` lookups or App Configuration / RG
 tags — Bicep has no remote‑state concept by design.
 
+Even the best‑designed topology will eventually require manual intervention — a resource renamed mid‑flight, an import needed for something created out‑of‑band, a module refactor that moved resources between states. That is what state surgery is for, and it deserves a ceremony proportionate to the risk.
+
 ---
 
 ## State surgery — when you must
@@ -222,6 +234,8 @@ import {
   id = "/subscriptions/.../resourceGroups/rg-legacy"
 }
 ```
+
+All of the above applies to Terraform. If you are working in Bicep, you have a different but equally powerful option — one that sidesteps the state problem altogether.
 
 ---
 
@@ -269,6 +283,8 @@ construction — but human break‑glass paths exist, so verify.
 
 See [11 manageability](11-manageability.md) for full drift handling.
 
+The anti‑patterns below are the architectural choices most likely to turn a controlled `apply` into an all‑hands incident.
+
 ---
 
 ## Anti‑patterns
@@ -286,6 +302,8 @@ See [11 manageability](11-manageability.md) for full drift handling.
   validation; one typo and the state is unrecoverable.
 * ❌ **Bicep deployments without stacks for prod.** You lose drift
   protection.
+
+State — or its Bicep equivalent — is the operational ledger for your entire Azure estate. The decisions in this chapter determine whether that ledger is a reliable audit trail or a liability waiting to ruin someone's weekend. A granular, hardened, properly‑referenced state topology is also the prerequisite for the CI/CD pipeline patterns in the next chapter: once you know exactly what each apply touches and why it is safe to run concurrently, designing the pipeline around it becomes considerably more straightforward.
 
 ---
 

@@ -5,6 +5,8 @@
 
 [← Back to index](../README.md) · Next → [02 IaC tooling](02-iac-tooling.md)
 
+Every team starting a Landing Zone eventually faces the same paralysing question: one repository for everything, or one per team? The answer shapes your permissions model, your pipeline architecture, your module versioning strategy, and who gets paged when the foundation breaks at midnight. Get it wrong early and the refactoring tax compounds quietly until one day you are coordinating 60 pull requests to bump a VPN module. This chapter maps out the three realistic topologies, names their failure modes honestly, and gives you a decision framework you can use in your next design review.
+
 ---
 
 ## How we got here
@@ -64,6 +66,8 @@ folder or a repo is the question:
 Below this sits **L0 — shared modules** (AVM consumption / wrappers), which is
 arguably its own repo with its own release cadence.
 
+With those layers in mind, we can evaluate what each topology looks like in practice — and more importantly, where each one quietly breaks down.
+
 ---
 
 ## Option A — Pure monorepo
@@ -105,6 +109,8 @@ alz/
 Small estates (<10 application landing zones), one platform team, no strict
 separation of duties between platform and application teams.
 
+For anything larger — or any team that has received a polite request to "please add just 20 more workloads this quarter" — the monorepo cracks start to show. The other extreme makes the ownership tradeoffs explicit.
+
 ---
 
 ## Option B — Pure multi‑repo
@@ -131,6 +137,8 @@ Every workload, every module, every policy set in its own repo.
 Very large estates (100+ landing zones), strong platform engineering investment
 in a self‑service portal/scaffolding (Backstage, internal CLI), strict
 regulatory separation between teams.
+
+Most organisations don't fit neatly into either extreme, which is precisely why the third option exists — it trades the cleanness of the two poles for something more pragmatic and, in practice, more durable.
 
 ---
 
@@ -166,6 +174,8 @@ ownership boundaries:
 
 ### When it works
 **This is the right answer for ~80 % of enterprise ALZ implementations.**
+
+If you're still uncertain which model best fits your situation, the questions below will cut through the ambiguity in short order.
 
 ---
 
@@ -258,6 +268,8 @@ alz-landingzones/
 ```
 
 ---
+
+With topology decided and the reference layouts in hand, you have the structural skeleton of your ALZ estate. The remaining chapters layer in the details — what language to write in those repos, how to version the modules, how to promote code between environments, and how to keep it all secure. The very next question, tackled in Chapter 02, is which IaC engine those repos will use: a deceptively straightforward choice that carries long-term operational consequences worth thinking through carefully.
 
 ## References
 
