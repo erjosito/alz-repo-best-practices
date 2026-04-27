@@ -1,0 +1,284 @@
+# 09 · Testing, validation & policy‑as‑code
+
+> **Decision:** what automated checks block a PR, and what's the contract
+> between platform and application teams expressed as policy?
+
+[← 08 CI/CD pipeline patterns](08-cicd-pipelines.md) · [Index](../README.md) · [10 Code quality →](10-code-quality.md)
+
+---
+
+## The testing pyramid for IaC
+
+```
+                    /\
+                   /  \   3.  Live integration tests
+                  /────\      (deploy, assert, destroy)
+                 /      \
+                /────────\  2. Plan-based / policy-as-code
+               /          \    (PSRule, Conftest, Checkov)
+              /────────────\
+             /              \  1. Static / lint
+            /────────────────\    (fmt, validate, tflint)
+```
+
+Bottom is cheap and fast; top is expensive and slow. Push as many checks
+as possible to the bottom.
+
+---
+
+## Layer 1 — Static checks (every commit)
+
+Run on every developer machine via pre‑commit and again in CI.
+
+### Terraform
+
+| Tool | What it does |
+|------|--------------|
+| `terraform fmt -check -recursive` | Formatting. Fail PR on diff. |
+| `terraform validate` | Catches typos, missing variables, type errors. |
+| [`tflint`](https://github.com/terraform-linters/tflint) | Provider‑aware lints (deprecated args, AzureRM-specific issues). Use the `terraform-linters/tflint-ruleset-azurerm` plugin. |
+| [`terraform-docs`](https://terraform-docs.io/) | Generates module READMEs. CI verifies docs are up to date. |
+
+### Bicep
+
+| Tool | What it does |
+|------|--------------|
+| `bicep build` | Catches syntax + type errors at compile time. |
+| `bicep format --check` | Formatting. |
+| `bicep lint` (built‑in) | Common authoring issues; configured via `bicepconfig.json`. |
+| [`PSRule for Azure`](https://azure.github.io/PSRule.Rules.Azure/) | Static analysis for ARM/Bicep against Azure WAF + CIS rules. |
+
+### Cross‑cutting
+
+* **EditorConfig** + Prettier for YAML / Markdown / JSON.
+* `actionlint` for GitHub Actions; `zizmor` for Actions security audit.
+* `markdownlint` for docs.
+* Run them all from a single `pre-commit` config — one file, one mental model.
+
+---
+
+## Layer 2 — Policy‑as‑code on the plan
+
+This is where you enforce *enterprise rules* at PR time, before any
+Azure resource is created.
+
+### What to enforce
+
+* **Naming convention** (resource names match a regex).
+* **Required tags** (`CostCenter`, `Owner`, `DataClassification`).
+* **Region restrictions** (no resources in `westeurope` if the workload is
+  data‑resident in `swedencentral`).
+* **Forbidden SKUs** (no Basic SKU public IPs in production; no
+  Standard_LRS storage for prod databases).
+* **Network controls** (no public endpoints on storage / SQL; private
+  endpoints required).
+* **Encryption** (CMK on key vaults, soft‑delete + purge protection
+  enabled).
+* **RBAC** (no `Owner` assignments outside the platform team's identity).
+
+### Tools
+
+| Tool | Best for |
+|------|----------|
+| [**PSRule for Azure**](https://azure.github.io/PSRule.Rules.Azure/) | Bicep + Terraform; ships hundreds of WAF rules out of the box. **Recommended default.** |
+| [**Checkov**](https://www.checkov.io/) | Multi‑IaC (Terraform, Bicep, ARM, K8s); fast onboarding. |
+| [**tfsec**](https://aquasecurity.github.io/tfsec/) | Terraform‑only; merged into Trivy now. |
+| [**Conftest** (OPA/Rego)](https://www.conftest.dev/) | When you need to write *organisation‑specific* rules and you're comfortable in Rego. |
+| [**Sentinel** (HCP)](https://developer.hashicorp.com/sentinel) | Only if you're on Terraform Cloud/Enterprise. |
+
+### Pattern: PSRule on Bicep in CI
+
+```yaml
+- name: Build Bicep to ARM
+  run: bicep build envs/prod/connectivity/main.bicep --outdir build/
+
+- name: Run PSRule
+  uses: microsoft/ps-rule@<sha>
+  with:
+    modules: PSRule.Rules.Azure
+    inputPath: build/
+    baseline: Azure.Pillar.Security
+    outputFormat: Sarif
+    outputPath: psrule.sarif
+
+- uses: github/codeql-action/upload-sarif@<sha>
+  with:
+    sarif_file: psrule.sarif
+```
+
+PSRule findings show up in the GitHub **Security** tab and on the PR.
+
+### Pattern: Checkov on Terraform plan
+
+```yaml
+- run: terraform plan -out tfplan && terraform show -json tfplan > tfplan.json
+- uses: bridgecrewio/checkov-action@<sha>
+  with:
+    file: tfplan.json
+    output_format: sarif
+    soft_fail: false
+```
+
+Checking against the **plan JSON** is more accurate than against `.tf` files
+because it captures resolved variables, modules, and dynamic blocks.
+
+### Custom Rego example (Conftest)
+
+Forbid public storage accounts in any non‑sandbox env:
+
+```rego
+package main
+
+deny[msg] {
+  resource := input.resource_changes[_]
+  resource.type == "azurerm_storage_account"
+  resource.change.after.public_network_access_enabled == true
+  not is_sandbox(input)
+  msg := sprintf("storage account %q must not allow public network access", [resource.address])
+}
+
+is_sandbox(plan) {
+  plan.variables.environment.value == "sandbox"
+}
+```
+
+```bash
+conftest test --policy ./policies tfplan.json
+```
+
+---
+
+## Layer 3 — Live integration tests
+
+Deploy a real instance, assert behaviour, destroy. Reserved for **modules**,
+not workloads.
+
+### Terraform
+
+* **`terraform test`** (built‑in since 1.6) — assertion blocks, can run
+  ephemeral applies. Default choice in 2026.
+* **Terratest** (Go) — older, more flexible, but heavier maintenance.
+
+```hcl
+# tests/main.tftest.hcl
+run "creates_hub_vnet" {
+  variables {
+    address_space = "10.0.0.0/16"
+    location      = "swedencentral"
+  }
+
+  assert {
+    condition     = output.vnet_id != ""
+    error_message = "Hub VNet was not created"
+  }
+}
+```
+
+### Bicep
+
+* **PSRule unit tests** for static rules.
+* `az deployment what-if` against a sacrificial resource group as a smoke
+  test.
+* For full integration: deploy via Deployment Stack to a per‑PR resource
+  group, run `az` queries to assert state, then `az stack sub delete
+  --action-on-unmanage deleteAll`.
+
+### Where they run
+
+* **Module repos:** every PR runs the full integration test suite in a
+  dedicated test subscription.
+* **Workload repos:** integration tests are usually unnecessary if your
+  modules are well‑tested. Plan/policy checks suffice.
+
+---
+
+## Policy‑as‑code vs Azure Policy
+
+There are **two** layers of policy:
+
+1. **Repo‑side (PR‑time) policy** — Checkov/PSRule/Conftest. Catches
+   issues *before* deployment. Fast feedback, free, scoped to what you can
+   see in code.
+2. **Platform‑side (runtime) Azure Policy** — applied at the management
+   group / subscription, enforces continuously, including for resources
+   created outside IaC.
+
+You need **both**:
+
+* PR‑time policy gives instant developer feedback and prevents the bad PR
+  from merging.
+* Azure Policy is the *insurance* — it catches anything the PR check
+  missed, and resources created via portal/CLI/script.
+
+The two should be **expressed from the same intent**. A common pattern:
+
+* Source of truth: a YAML file describing each control.
+* Generator script produces:
+  * A PSRule / Checkov rule for PR time.
+  * An Azure Policy `policyDefinition` and assignment for runtime.
+
+That way, drift between "what we lint" and "what we enforce" is impossible
+by construction.
+
+### Azure Policy lifecycle in this repo
+
+* Policy *definitions* in code (Bicep/Terraform).
+* Policy *assignments* in the foundation/policy repo.
+* Initiative/Set definitions for grouped controls.
+* On PR: `az policy assignment create --enforcement-mode DoNotEnforce`
+  against a test management group, then run a compliance scan, then
+  destroy.
+* On merge: deploy with `Default` enforcement.
+
+For deny vs audit:
+
+* **Audit**: rolling out a new control. Run for ≥ 2 weeks, generate the
+  exemption list from existing non‑compliant resources, then flip to deny.
+* **Deny**: steady state for any control where remediation is cheap and
+  the violation has a real impact.
+
+---
+
+## Test coverage targets
+
+Pragmatic, not dogmatic:
+
+| Artifact | Minimum coverage |
+|----------|------------------|
+| Tier‑2 pattern modules | Static + plan‑policy + ≥ 1 integration test per major code path |
+| Tier‑3 workload composition | Static + plan‑policy. No need for integration tests if modules are tested. |
+| Custom Azure Policy | Compliance test against a fixture resource that should pass + a fixture that should fail |
+| Pipeline templates | Unit test the templates with `act` or by running them against a sample repo |
+
+---
+
+## Anti‑patterns
+
+* ❌ **All policy lives in Azure Policy.** Developers find out at deploy
+  time, after they've waited for a 15‑min `terraform plan` to come back.
+  Move what you can to PR time.
+* ❌ **All policy lives at PR time.** Anyone clicking in the portal
+  bypasses your controls.
+* ❌ **`soft_fail: true` on Checkov to "fix later".** Later never comes.
+* ❌ **Integration tests against a shared test subscription with hard‑coded
+  names.** Two PRs run simultaneously → name collision → both fail.
+* ❌ **Tests that take 45 minutes.** Engineers will avoid them. Parallelise
+  or trim coverage.
+
+---
+
+## References
+
+* PSRule for Azure: <https://azure.github.io/PSRule.Rules.Azure/>
+* Checkov: <https://www.checkov.io/>
+* Conftest: <https://www.conftest.dev/>
+* Hashicorp, *`terraform test`*:
+  <https://developer.hashicorp.com/terraform/language/tests>
+* Terratest: <https://terratest.gruntwork.io/>
+* Microsoft, *Azure Policy as code*:
+  <https://learn.microsoft.com/azure/governance/policy/concepts/policy-as-code>
+* OPA / Rego: <https://www.openpolicyagent.org/docs/latest/policy-language/>
+
+---
+
+[← 08 CI/CD pipeline patterns](08-cicd-pipelines.md) · [Index](../README.md) · [10 Code quality →](10-code-quality.md)
