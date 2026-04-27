@@ -57,20 +57,25 @@ The mechanism varies by CI platform, but the principle is uniform: federate when
 
 ## OIDC federation — how it actually works
 
-```
-┌──────────────────────┐  1. requests OIDC ID token
-│ GitHub Actions job   │ ─────────────────────────────►  GitHub OIDC issuer
-│                      │  ◄─────────────── signed JWT ──
-│  azure/login@v2      │
-│                      │  2. exchanges JWT for Azure
-│                      │     access token (no secret)
-│                      │ ─────────────────────────────►  Entra ID
-│                      │  ◄────── short-lived AAD token ─
-└──────────────────────┘
-                          3. RBAC-checked ARM calls
-                                        │
-                                        ▼
-                                Azure subscription
+The whole exchange happens inside a single workflow run. No secret is
+created, transmitted, or stored — only short‑lived signed tokens cross
+the wire.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Job as GitHub Actions job<br/>(azure/login@v2)
+    participant GH as GitHub OIDC issuer<br/>(token.actions.githubusercontent.com)
+    participant Entra as Entra ID<br/>(workload federated credential)
+    participant ARM as Azure Resource Manager
+
+    Job->>GH: Request OIDC ID token<br/>(audience = api://AzureADTokenExchange)
+    GH-->>Job: Signed JWT<br/>(claims: repo, ref, environment, ...)
+    Job->>Entra: Exchange JWT for Azure access token
+    Note over Entra: Verify JWT signature<br/>+ subject matches federated credential
+    Entra-->>Job: Short-lived (~1h) AAD access token
+    Job->>ARM: Deploy resources<br/>(Bearer token in Authorization header)
+    ARM-->>Job: 201 Created
 ```
 
 The trust is established once on the **Entra app registration** (or

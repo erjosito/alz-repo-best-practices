@@ -55,12 +55,39 @@ in two files.
 
 ## The standard two‑workflow shape
 
-Every IaC repo should have exactly two workflows:
+Every IaC repo should have exactly two workflows: one that runs on every
+PR to *prove* the change is safe, and one that runs after merge to
+*apply* it. Both delegate the actual work to a shared reusable workflow,
+so the per‑repo files stay short and consistent.
 
-```
-.github/workflows/
-├── pr.yml      # on: pull_request — validate, plan, comment
-└── deploy.yml  # on: push to main — apply, with environment gates
+```mermaid
+flowchart LR
+    subgraph PR["pr.yml — on: pull_request"]
+        direction TB
+        D1[detect changed envs] --> V[validate · lint · plan]
+        V --> C["post plan as PR comment"]
+    end
+
+    subgraph DEP["deploy.yml — on: push to main"]
+        direction TB
+        D2[detect changed envs] --> NP["apply → nonprod<br/>(parallel matrix)"]
+        NP --> G{"environment: prod<br/>required reviewers"}
+        G -->|approved| P["apply → prod<br/>(parallel matrix)"]
+    end
+
+    Templates[("alz-pipeline-templates<br/><i>reusable workflows</i>")]
+    V -.uses.-> Templates
+    NP -.uses.-> Templates
+    P -.uses.-> Templates
+
+    classDef pr fill:#cdeffd,stroke:#2980b9
+    classDef dep fill:#d4efdf,stroke:#27ae60
+    classDef gate fill:#fcf3cf,stroke:#b7950b
+    classDef tmpl fill:#f5e6f9,stroke:#7d3c98
+    class D1,V,C pr
+    class D2,NP,P dep
+    class G gate
+    class Templates tmpl
 ```
 
 Plus shared **reusable workflows** in a central repo (e.g. `alz-pipeline-templates`).

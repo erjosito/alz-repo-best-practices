@@ -36,6 +36,17 @@ Not every piece of content that belongs in that library is the same kind of thin
 Inspired by the [Diátaxis framework](https://diataxis.fr/) — every piece of
 documentation should be exactly one of:
 
+```mermaid
+quadrantChart
+    title Diátaxis — what kind of doc is this?
+    x-axis "<b>Practical steps</b>" --> "<b>Theoretical understanding</b>"
+    y-axis "<b>Studying (acquiring skill)</b>" --> "<b>Working (applying skill)</b>"
+    quadrant-1 "How-to guides<br/>'Achieve a goal'<br/>docs/runbooks/"
+    quadrant-2 "Explanation<br/>'Understand why'<br/>docs/adr/"
+    quadrant-3 "Tutorials<br/>'Learn by doing'<br/>docs/tutorials/"
+    quadrant-4 "Reference<br/>'Look it up'<br/>auto-generated"
+```
+
 | Type | Purpose | Where in the repo |
 |------|---------|-------------------|
 | **Tutorials** | Hand‑hold a newcomer to first success | `docs/tutorials/` |

@@ -144,6 +144,34 @@ bad apply, but the more cross‑state references you need. The sweet spot:
 | Platform — identity / mgmt | One state per *environment*. |
 | Landing zone | One state per *(workload × environment)*. Never share. |
 
+Visualised as a tree, a healthy state layout is wide and shallow — many
+small files at the leaves, a handful at the root:
+
+```mermaid
+flowchart TB
+    F["foundation/prod.tfstate<br/><i>MGs · policies · root RBAC</i>"]
+    P1["platform/connectivity/prod-westeurope.tfstate"]
+    P2["platform/connectivity/prod-northeurope.tfstate"]
+    P3["platform/identity/prod.tfstate"]
+    P4["platform/management/prod.tfstate"]
+    L1["lz/app42/prod.tfstate"]
+    L2["lz/app42/nonprod.tfstate"]
+    L3["lz/app77/prod.tfstate"]
+    L4["lz/app77/nonprod.tfstate"]
+    L5["lz/.../..."]
+
+    F --> P1 & P2 & P3 & P4
+    P1 -. data ref .-> L1 & L3
+    P3 -. data ref .-> L1 & L2 & L3 & L4
+
+    classDef found fill:#fde2e4,stroke:#c0392b
+    classDef plat  fill:#cdeffd,stroke:#2980b9
+    classDef lz    fill:#d4efdf,stroke:#27ae60
+    class F found
+    class P1,P2,P3,P4 plat
+    class L1,L2,L3,L4,L5 lz
+```
+
 Rule of thumb: **a single `apply` should touch resources owned by one team
 and deployable in under 15 minutes.** If `plan` takes 20 minutes, your state
 is too big.

@@ -33,16 +33,20 @@ where each layer belongs.
 
 ## The testing pyramid for IaC
 
-```
-                    /\
-                   /  \   3.  Live integration tests
-                  /────\      (deploy, assert, destroy)
-                 /      \
-                /────────\  2. Plan-based / policy-as-code
-               /          \    (PSRule, Conftest, Checkov)
-              /────────────\
-             /              \  1. Static / lint
-            /────────────────\    (fmt, validate, tflint)
+```mermaid
+flowchart TB
+    L3["<b>3 · Live integration tests</b><br/>deploy → assert → destroy<br/><i>slow · expensive · highest fidelity</i>"]
+    L2["<b>2 · Plan-based / policy-as-code</b><br/>PSRule · Conftest · Checkov · tfsec<br/><i>fast · cheap · catches most violations</i>"]
+    L1["<b>1 · Static / lint</b><br/>fmt · validate · tflint<br/><i>instant · free · runs on every keystroke</i>"]
+
+    L3 --> L2 --> L1
+
+    classDef l1 fill:#d4efdf,stroke:#27ae60
+    classDef l2 fill:#fcf3cf,stroke:#b7950b
+    classDef l3 fill:#f9ebea,stroke:#922b21
+    class L1 l1
+    class L2 l2
+    class L3 l3
 ```
 
 Bottom is cheap and fast; top is expensive and slow. Push as many checks

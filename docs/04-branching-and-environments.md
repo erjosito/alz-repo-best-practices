@@ -40,6 +40,32 @@ The answers are coupled — choose them together. For the vast majority of ALZ d
 
 ## Recommended: trunk‑based + folder‑per‑environment
 
+The mental model: **`main` is the source of truth for every environment**;
+the difference between environments lives in parameter files, not in
+divergent branches. A change moves through environments by being
+*applied* to each in sequence, gated by approvals — not by being
+*merged* between branches.
+
+```mermaid
+flowchart LR
+    Dev[("👩‍💻 Engineer<br/>feature branch")] -->|PR| Plan{{"plan / what-if<br/>+ policy checks<br/>posted on PR"}}
+    Plan -->|review + merge| Main[("main branch")]
+    Main --> NP["apply → nonprod"]
+    NP -->|automated| Soak["soak / smoke tests"]
+    Soak --> Gate{"manual<br/>approval"}
+    Gate -->|approved| Prod["apply → prod"]
+    Gate -.->|rejected| Revert["revert PR<br/>to roll back"]
+
+    classDef env fill:#cdeffd,stroke:#2980b9
+    classDef gate fill:#fcf3cf,stroke:#b7950b
+    classDef bad fill:#f9ebea,stroke:#922b21
+    class NP,Prod,Soak env
+    class Plan,Gate gate
+    class Revert bad
+```
+
+The repo layout that supports this:
+
 ```
 alz-platform/
 ├── envs/

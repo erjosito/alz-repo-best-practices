@@ -50,21 +50,29 @@ Two extreme positions exist, with a sensible middle ground:
 Almost every ALZ implementation has these natural layers. Whether each is a
 folder or a repo is the question:
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  L1  Foundation     management groups, policies, RBAC       │
-│      (rare changes, tenant-wide blast radius)               │
-├─────────────────────────────────────────────────────────────┤
-│  L2  Platform       hub network, identity, mgmt, security   │
-│      (monthly changes, platform team owns)                  │
-├─────────────────────────────────────────────────────────────┤
-│  L3  Landing zones  per-app subscription "vending"          │
-│      (daily changes, application teams contribute)          │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    L1["<b>L1 · Foundation</b><br/>Management groups · Policies · RBAC<br/><i>Rare changes · Tenant-wide blast radius</i>"]
+    L2["<b>L2 · Platform</b><br/>Hub network · Identity · Management · Security<br/><i>Monthly changes · Platform team owns</i>"]
+    L3["<b>L3 · Landing zones</b><br/>Per-app subscription 'vending'<br/><i>Daily changes · App teams contribute</i>"]
+    L0["<b>L0 · Shared modules</b><br/>AVM consumption + tier-2 wrappers<br/><i>On-change releases · Versioned artifact</i>"]
+
+    L1 --> L2 --> L3
+    L0 -. consumed by .-> L2
+    L0 -. consumed by .-> L3
+
+    classDef foundation fill:#fde2e4,stroke:#c0392b
+    classDef platform   fill:#cdeffd,stroke:#2980b9
+    classDef lz         fill:#d4efdf,stroke:#27ae60
+    classDef modules    fill:#fcf3cf,stroke:#b7950b
+    class L1 foundation
+    class L2 platform
+    class L3 lz
+    class L0 modules
 ```
 
-Below this sits **L0 — shared modules** (AVM consumption / wrappers), which is
-arguably its own repo with its own release cadence.
+L0 sits to the side: it's not a deployment layer at all but a *library*
+that L2 and L3 consume by version.
 
 With those layers in mind, we can evaluate what each topology looks like in practice — and more importantly, where each one quietly breaks down.
 

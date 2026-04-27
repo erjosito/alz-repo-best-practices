@@ -199,19 +199,44 @@ Resource-level naming and tagging address the workload layer. The same principle
 
 These are top‑level too — bake them into the foundation:
 
-```
-Tenant Root
-├── alz                          (intermediate root)
-│   ├── alz-platform
-│   │   ├── alz-platform-connectivity
-│   │   ├── alz-platform-identity
-│   │   └── alz-platform-management
-│   ├── alz-landingzones
-│   │   ├── alz-corp
-│   │   └── alz-online
-│   ├── alz-decommissioned
-│   └── alz-sandboxes
-└── (legacy)
+```mermaid
+flowchart TB
+    Root["Tenant Root"]
+    ALZ["alz<br/><i>(intermediate root)</i>"]
+    Plat["alz-platform"]
+    LZ["alz-landingzones"]
+    Decom["alz-decommissioned"]
+    Sand["alz-sandboxes"]
+    Legacy["(legacy)"]
+
+    PConn["alz-platform-connectivity"]
+    PIdent["alz-platform-identity"]
+    PMgmt["alz-platform-management"]
+
+    LZCorp["alz-corp"]
+    LZOnline["alz-online"]
+
+    Root --> ALZ
+    Root --> Legacy
+    ALZ --> Plat
+    ALZ --> LZ
+    ALZ --> Decom
+    ALZ --> Sand
+    Plat --> PConn
+    Plat --> PIdent
+    Plat --> PMgmt
+    LZ --> LZCorp
+    LZ --> LZOnline
+
+    classDef root  fill:#f5f5f5,stroke:#666,stroke-width:2px
+    classDef inter fill:#e8f4fd,stroke:#2980b9
+    classDef plat  fill:#cdeffd,stroke:#2980b9
+    classDef lz    fill:#d4efdf,stroke:#27ae60
+    classDef misc  fill:#f9ebea,stroke:#922b21
+    class Root,ALZ root
+    class Plat,PConn,PIdent,PMgmt plat
+    class LZ,LZCorp,LZOnline lz
+    class Decom,Sand,Legacy misc
 ```
 
 Subscription names mirror the MG path:

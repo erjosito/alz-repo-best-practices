@@ -32,24 +32,21 @@ history.
 A mature ALZ implementation has **three tiers** of modules. Conflating them
 is the most common mistake.
 
-```
-┌─────────────────────────────────────────────────────────┐
-│ Tier 1 — Resource modules                               │
-│   "Create one VNet correctly."                          │
-│   Source: Azure Verified Modules (AVM)                  │
-│   Owner:  Microsoft / community                         │
-├─────────────────────────────────────────────────────────┤
-│ Tier 2 — Pattern modules (a.k.a. "platform modules")    │
-│   "A hub-and-spoke with our standard tags, diagnostics, │
-│    and policy assignments."                             │
-│   Source: your `alz-modules` repo                       │
-│   Owner:  platform engineering                          │
-├─────────────────────────────────────────────────────────┤
-│ Tier 3 — Workload composition                           │
-│   "App42's prod environment in westeurope."             │
-│   Source: landing-zone repo                             │
-│   Owner:  application team (with platform reviewers)    │
-└─────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    T1["<b>Tier 1 · Resource modules</b><br/>'Create one VNet correctly.'<br/><i>Source: Azure Verified Modules (AVM)</i><br/><i>Owner: Microsoft + community</i>"]
+    T2["<b>Tier 2 · Pattern modules</b><br/>'A hub-and-spoke with our standard tags,<br/>diagnostics and policy assignments.'<br/><i>Source: your alz-modules repo</i><br/><i>Owner: platform engineering</i>"]
+    T3["<b>Tier 3 · Workload composition</b><br/>'App42 prod in swedencentral.'<br/><i>Source: landing-zone repo</i><br/><i>Owner: app team (+ platform reviewers)</i>"]
+
+    T3 -->|composes| T2
+    T2 -->|wraps + opinionates| T1
+
+    classDef t1 fill:#fcf3cf,stroke:#b7950b
+    classDef t2 fill:#cdeffd,stroke:#2980b9
+    classDef t3 fill:#d4efdf,stroke:#27ae60
+    class T1 t1
+    class T2 t2
+    class T3 t3
 ```
 
 * **Tier 1** is *consumed*, never modified. If AVM is missing something,

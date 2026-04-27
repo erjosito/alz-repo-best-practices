@@ -194,19 +194,15 @@ Role assignments are a snapshot of *who can do what right now*. The complementar
 
 Define an explicit lifecycle. The repo should support each transition:
 
-```
-       ┌─────────────────────────────────────────────────┐
-       │                                                 │
-       ▼                                                 │
-   ┌────────┐    request    ┌────────┐    deploy   ┌─────────┐
-   │ none   │──────────────►│ vended │────────────►│  active │
-   └────────┘               └────────┘             └────┬────┘
-                                                        │
-                                                        │ retire
-                                                        ▼
-                                                  ┌──────────────┐
-                                                  │ decommissioned│
-                                                  └──────────────┘
+```mermaid
+stateDiagram-v2
+    [*] --> Requested : intake form / PR
+    Requested --> Vended : foundation pipeline<br/>creates subscription + folder
+    Vended --> Active : first successful deploy
+    Active --> Active : routine PRs<br/>(app team)
+    Active --> Decommissioning : retirement PR
+    Decommissioning --> Decommissioned : pipeline destroys<br/>+ moves sub to 'decommissioned' MG
+    Decommissioned --> [*] : subscription disabled<br/>after retention window
 ```
 
 | Phase | Repo action |
