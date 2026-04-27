@@ -7,6 +7,27 @@
 
 ---
 
+## How we got here
+
+For most of Terraform's first decade, "testing" meant *running `terraform
+plan` and squinting at the diff*. The brave wrote shell scripts that
+ran `apply`, hit a few endpoints with `curl`, then `destroy`d everything
+— a category formalised in 2018 as **Terratest** (Gruntwork's Go
+library). It worked, but writing infrastructure tests in Go was a steep
+ask for ops teams, and Kitchen‑Terraform never quite caught on. The
+**policy‑as‑code** movement, born from HashiCorp's Sentinel and
+generalised by **Open Policy Agent** (CNCF, 2018), shifted the centre of
+gravity: instead of *running* the deploy and checking the result, *parse
+the plan and reject bad ones* before they touched Azure. Microsoft's
+**PSRule for Azure** (2020) brought hundreds of WAF‑aligned rules out of
+the box, while Bridgecrew's **Checkov** (2019) and Aqua's **tfsec**
+(2019) made multi‑cloud scanning trivial. Native **`terraform test`**
+finally landed in Terraform 1.6 (October 2023), making real integration
+testing accessible to anyone who could write HCL. The result: the modern
+IaC pipeline is a **defence‑in‑depth pyramid** — static linting, plan‑
+time policy, integration tests on modules, and runtime Azure Policy as
+the safety net.
+
 ## The testing pyramid for IaC
 
 ```

@@ -7,6 +7,24 @@
 
 ---
 
+## How we got here
+
+The first wave of "Azure as code" was bash scripts wrapping `azure-cli`
+(then `az`), often committed alongside README sentences like *"run these
+in order, don't forget to set the subscription"*. Microsoft launched **ARM
+JSON templates** in 2014 — a genuine declarative model, but the syntax
+made grown engineers cry. The same year, HashiCorp shipped Terraform; the
+**AzureRM provider** (2016) gave multi‑cloud teams a sane authoring
+experience and a real `plan` diff, and quickly became the default in
+enterprises. Microsoft watched the migration and responded with **Bicep**
+(public preview 2020, GA 2021) — essentially "ARM JSON, but lovable" —
+and then with **Deployment Stacks** (GA 2024) to close the
+state‑management gap that pushed many teams to Terraform in the first
+place. **Pulumi** (2018) bet on real programming languages and found a
+loyal niche but never displaced Terraform for ops‑led teams. Today the
+honest answer to "Bicep or Terraform?" is "whichever your team will still
+be operating well at 2 a.m." — both are first‑class on Azure in 2026.
+
 ## TL;DR recommendation
 
 | Layer | Recommended | Acceptable alternative |

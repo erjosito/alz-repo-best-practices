@@ -7,6 +7,23 @@
 
 ---
 
+## How we got here
+
+In the early days of every Azure tenant there's an artisanal naming
+convention written by the first cloud architect on a whiteboard — and a
+second one written by their replacement six months later. By 2018 the
+average enterprise had three: the documented one, the one used for new
+resources, and the one used by the legacy migration team. Microsoft's
+**CAF naming guidance** (2019) and the canonical **resource abbreviation
+list** finally gave the industry a shared vocabulary, and reusable
+**naming modules** (the `Azure/naming` Terraform module, the
+`nianton/azure-naming` Bicep module) made the convention executable
+rather than aspirational. Tagging followed a similar arc: a brief flirtation
+with "free‑text whatever the engineer felt like" gave way to **Azure
+Policy `modify` effects** that auto‑append RG tags, and to mandatory tag
+sets enforced by `deny`. The boring takeaway: **what isn't enforced by
+code or policy doesn't exist**. Training slides don't enforce; CI does.
+
 ## Why this gets a whole chapter
 
 Naming and tagging are the **load‑bearing infrastructure of every other

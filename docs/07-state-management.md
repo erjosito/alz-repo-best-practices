@@ -8,6 +8,27 @@
 
 ---
 
+## How we got here
+
+The earliest Terraform shops kept `terraform.tfstate` on the engineer's
+laptop, occasionally emailing it around or — worse — committing it to
+Git. Concurrent applies were "managed" by Slack message
+(*"@everyone don't apply, I'm applying"*), and the inevitable
+state‑file conflicts were resolved by hand‑merging JSON. Hashicorp
+shipped **remote backends with locking** (S3 + DynamoDB; later
+`azurerm` with blob leases) around 2017, which solved the concurrency
+problem but introduced a new one: many teams pointed *every* environment
+at the same backend and the same state file, producing a single
+explosive `apply` whose blast radius was the whole estate. The
+2018–2022 period was a slow lesson in **state granularity** — one state
+per (workload × environment) — and in **state‑as‑a‑secret‑store**
+hardening. Bicep deliberately avoided the question for years (ARM was
+the source of truth), but customers kept asking for the *features* state
+provided: managed‑resource tracking, drift protection, "what would
+removing this line do?" Microsoft's answer was **Deployment Stacks**
+(GA 2024), which give you Terraform‑style guarantees with no state file
+to operate. The chapter covers both worlds.
+
 ## Why this is not a footnote
 
 State is the **most operationally dangerous** part of Terraform. A corrupt

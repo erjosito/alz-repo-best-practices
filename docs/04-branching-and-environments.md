@@ -7,6 +7,24 @@
 
 ---
 
+## How we got here
+
+When IaC adoption took off around 2016, most ops teams reached for the
+branching model their app‑dev colleagues were using: **GitFlow**.
+`develop` → `release/*` → `main`, each mapped to an environment, each
+deploy triggered by a merge. It worked — until the first hotfix had to be
+cherry‑picked back to `develop`, and then to `release/1.4`, and someone
+missed one. The next wave of teams tried **GitHub Flow** (one long branch,
+short feature branches) but kept the "environment = branch" idea, which
+ran into the same drift problems. The **GitOps movement** (Weaveworks
+coined the term in 2017; Flux and ArgoCD popularised it) reframed the
+question: environments are *folders containing manifests*, not branches
+*containing code*. Combined with **trunk‑based development** practices
+proven at high‑scale shops, "one branch, folder per environment" became
+the dominant pattern by the early 2020s. The branch‑per‑environment model
+still survives in regulated industries that map approval to branches —
+usually because the auditors learned Git from a 2015 tutorial.
+
 ## The two questions you must answer
 
 1. **Branching model:** trunk‑based vs. environment‑per‑branch (GitFlow‑ish)?

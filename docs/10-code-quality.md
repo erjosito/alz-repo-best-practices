@@ -7,6 +7,24 @@
 
 ---
 
+## How we got here
+
+The original "developer experience" of an IaC repo was a one‑line
+README: *"install Terraform and run `terraform apply`."* Three months
+later, half the team was on Terraform 0.11 and half on 0.12, and a fresh
+clone took an afternoon to bootstrap. Tooling caught up in waves: `tflint`
+(2018) added Azure‑aware lints, `terraform-docs` (2019) generated module
+READMEs from the schema, **pre‑commit‑terraform** (2019) bundled it all
+into a single `pre-commit install`. The biggest leap was the
+**devcontainer** specification (Microsoft, open‑sourced 2022) and
+**GitHub Codespaces** — for the first time you could pin every tool, every
+extension, and every shell helper in one JSON file and have CI use the
+*identical* image. Tools like **`mise`** and **`asdf`** brought the same
+discipline to engineers who don't want a container around their editor.
+A mature ALZ repo in 2026 should let a new joiner go from `git clone` to
+a green `plan` in under five minutes — and that's not aspirational, it's
+table stakes.
+
 ## The "five‑minute onboarding" target
 
 A new engineer should be able to:

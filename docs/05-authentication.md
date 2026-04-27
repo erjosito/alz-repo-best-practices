@@ -7,6 +7,27 @@
 
 ---
 
+## How we got here
+
+The history of pipeline auth to Azure is a sequence of *reactions to
+breaches*. In the early days you minted a **service principal with an
+X.509 certificate**, mounted it onto your build agent, and prayed nobody
+copied the PFX. When that proved operationally painful, the community
+moved to **client secrets** — easier to handle, easier to leak, and leak
+they did, repeatedly, in committed YAML files and CI logs. Microsoft
+shipped **Managed Identities** in 2017, which solved the problem
+elegantly *for workloads running in Azure*, but CI/CD runners (GitHub‑
+hosted, Jenkins on‑prem, GitLab SaaS) still needed long‑lived secrets.
+GitHub announced **OIDC for Actions** in 2021, Entra added support for
+**workload federated credentials** the same year, and the entire problem
+class evaporated almost overnight: the runner asks GitHub for a
+short‑lived signed JWT, exchanges it with Entra, and gets a 1‑hour
+access token. No secret ever exists. By 2024 federated credentials had
+spread to **user‑assigned managed identities** as well, and Azure DevOps
+shipped its own equivalent. There is now no defensible reason to store an
+Azure secret in a CI system — and yet, the surveys keep showing that most
+do. This chapter exists to make sure you don't.
+
 ## The hard rule
 
 **No long‑lived Azure credentials in any CI/CD system. Period.**

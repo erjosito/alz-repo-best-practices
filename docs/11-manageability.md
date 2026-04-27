@@ -7,6 +7,25 @@
 
 ---
 
+## How we got here
+
+The first generation of "infrastructure as code" was really
+*infrastructure as code, plus quite a lot of clicking when nobody was
+looking*. Drift wasn't a concept; it was a fact of life that a `vnet`
+created by Terraform on Monday would have an extra subnet by Friday
+because someone needed to *just quickly fix something*. Tools like
+**driftctl** (2021) and **Terraformer** brought visibility, and
+scheduled `terraform plan -detailed-exitcode` runs became a standard
+Day‑2 practice. Microsoft's **Deployment Stacks** with `denySettings`
+(GA 2024) finally made out‑of‑band changes *blockable at the ARM
+layer*, not just detectable after the fact. **CODEOWNERS** (GitHub
+2017) gave path‑based governance that scales beyond "the platform team
+reviews everything", and **Privileged Identity Management** (Entra)
+made standing high‑privilege access the exception rather than the rule.
+Day‑2 ops in 2026 is no longer a heroic firefighting practice — done
+right, it's mostly Renovate PRs, drift dashboards, and the occasional
+runbook. This chapter shows the building blocks.
+
 ## CODEOWNERS — your first line of governance
 
 `CODEOWNERS` enforces *who must approve* a PR for any given path. In a

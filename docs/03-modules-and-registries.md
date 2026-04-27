@@ -7,6 +7,24 @@
 
 ---
 
+## How we got here
+
+The first Terraform projects had no concept of modules at all — engineers
+copy‑pasted `.tf` files between repos and patched the differences by
+hand. When that became unbearable, the community tried **Git submodules**
+(universally hated for confusing checkouts), then `git::` sources pinned
+to commits (better, but no semver), then the **public Terraform Registry**
+(2017) for open‑source modules. Private registries followed soon after,
+either via Terraform Cloud or self‑hosted OCI/HTTP backends. Bicep
+launched without modules at all in 2020, added them in 2021, then added
+the **`br:` registry protocol** so you could `bicep publish` to ACR. The
+breakthrough came in 2023 with **Azure Verified Modules (AVM)** — a
+single, Microsoft‑curated catalogue of Bicep *and* Terraform modules with
+consistent inputs, baked‑in WAF defaults, and a real maintenance commitment.
+Before AVM, every consultancy shipped its own subtly‑broken "vnet module";
+after AVM, that's a smell. The three‑tier model below builds on this
+history.
+
 ## The three‑tier module model
 
 A mature ALZ implementation has **three tiers** of modules. Conflating them

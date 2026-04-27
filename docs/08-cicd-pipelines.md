@@ -8,6 +8,24 @@
 
 ---
 
+## How we got here
+
+Early infrastructure pipelines were **Jenkins freestyle jobs** with the
+Terraform commands pasted into a textbox; the pipeline definition lived
+in the Jenkins UI, not in Git, so reviewing a deploy meant taking a
+screenshot. The "pipeline‑as‑code" movement (Jenkinsfile in 2016, then
+Travis/CircleCI YAML, then Azure Pipelines YAML in 2019, then GitHub
+Actions in late 2019) finally put deploy logic into version control —
+but every repo copy‑pasted the same workflow, and within a year the
+copies had drifted. **Reusable workflows** (GitHub Actions, 2021) and
+**YAML templates with `extends:`** (Azure DevOps) gave central platform
+teams a way to own the pipeline once and have every consumer stay in
+sync. Around the same time, the GitOps community pushed the idea of
+**ephemeral, short‑lived runners** — and after a string of self‑hosted
+runner compromises in 2022–2024, that became the security baseline. The
+patterns in this chapter assume reusable workflows, ephemeral runners,
+and OIDC auth — the consensus shape of an IaC pipeline in 2026.
+
 ## GitHub Actions vs Azure DevOps Pipelines
 
 Both can do the job. Pick on these criteria:

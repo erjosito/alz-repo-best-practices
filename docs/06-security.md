@@ -7,6 +7,24 @@
 
 ---
 
+## How we got here
+
+For a long time, "secrets management" in IaC meant *"don't commit them"*
+— enforced by code review, vibes, and luck. Luck ran out repeatedly:
+Uber's AWS keys in a public Git repo (2016), countless `.tfvars` leaks,
+SAS tokens in `terraform.tfstate` files uploaded to misconfigured
+backends. Push‑side defences emerged around 2018: `truffleHog`,
+`gitleaks`, eventually GitHub's **native secret scanning** and **push
+protection**. Then the threat shifted *upstream*: the SolarWinds attack
+(2020) and the Codecov bash‑uploader compromise (2021) showed that a
+trusted dependency could be the attack vector. The IaC world felt this
+directly with the **`tj-actions/changed-files`** Action compromise of
+March 2025, which exfiltrated secrets from thousands of pipelines that
+had pinned by *tag* rather than by *commit SHA*. The response is the
+defence‑in‑depth model this chapter describes: keep secrets out of code,
+sign what you ship (Sigstore, SLSA attestations), pin every dependency
+by digest, and assume your CI runner will eventually be compromised.
+
 ## The threat model
 
 For an IaC repo that controls an enterprise Azure estate, the realistic

@@ -7,6 +7,24 @@
 
 ---
 
+## How we got here
+
+In the early 2010s, when "infrastructure as code" still mostly meant Chef
+cookbooks and Puppet manifests, the natural home was a single SVN or Git
+repo per project. Then the **microservices wave** of 2014–2017 cargo‑culted
+the same fragmentation onto infrastructure: every service got its own
+repo, its own Terraform state, its own pipeline. Within a couple of years,
+"how do I bump the VPC module across 80 repos?" became a recurring
+LinkedIn post. By the late 2010s the pendulum swung the other way as
+Google, Facebook, and Microsoft published essays on the productivity
+benefits of monorepos backed by purpose‑built tooling (Bazel, Buck,
+Source Depot). For IaC specifically, the Terraform community discovered
+that **Git submodules don't fix the problem** and that **module registries
+do** (Terraform Registry, then private registries, then OCI). Today most
+mature ALZ implementations live in a *small number* of carefully chosen
+repos — neither a single behemoth nor an unmanageable swarm — and that's
+the option this chapter recommends.
+
 ## Why this is the first decision you make
 
 Repository topology drives almost every other choice in this guide:

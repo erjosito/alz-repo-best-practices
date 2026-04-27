@@ -8,6 +8,25 @@
 
 ---
 
+## How we got here
+
+Pre‑2010, infrastructure documentation lived in Word documents on a
+shared drive nobody had write access to. The wiki era (Confluence,
+SharePoint, MediaWiki) was a step forward in *editability* but a step
+backward in *trustworthiness* — there was no diff, no PR, no link to
+the code, and the docs decayed silently. Two ideas fixed this. First,
+**Architecture Decision Records** — a one‑page format proposed by
+Michael Nygard in 2011 — gave teams a way to capture *why* a decision
+was made, immutably and in version control. Second, the **Diátaxis
+framework** (Daniele Procida, 2017–2021) explained *why* most
+documentation is bad: it conflates tutorials, how‑tos, reference, and
+explanation into one unreadable mess. Tooling caught up: **Mermaid**
+landed in GitHub markdown in 2022, killing the binary‑diagram era; **D2**
+and **Excalidraw** gave teams text‑based architecture diagrams; and
+**`terraform-docs`** / **PSDocs** automated the reference layer. The modern
+IaC repo's docs/ folder is a small, disciplined library — not a
+dumping ground.
+
 ## The four kinds of documentation
 
 Inspired by the [Diátaxis framework](https://diataxis.fr/) — every piece of
