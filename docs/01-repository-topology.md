@@ -234,6 +234,99 @@ Ask these questions in order:
 
 ---
 
+## When ownership boundaries blur — cross‑team resources
+
+Option C assumes clean ownership: the platform team owns the platform repo,
+app teams own their landing zones. Reality is messier. Some Azure resources
+sit at the boundary between platform and application, and no repo split
+eliminates the tension entirely.
+
+Two recurring examples illustrate the pattern:
+
+### NSGs — app‑owned resource, platform‑mandated rules
+
+Network Security Groups live in the application landing zone subscription. The
+app team knows which ports their workload needs. But the central security team
+mandates baseline rules: no `*`‑to‑`*` inbound, required deny‑all at the
+bottom, specific allowed sources for management traffic.
+
+**Recommended pattern: app ownership + policy guardrails.**
+
+* The **app team owns the NSG code** in their landing zone folder and submits
+  PRs for rule changes.
+* **Azure Policy** (owned by the security team in the policies repo) denies
+  non‑compliant rules at deploy time — e.g. a `deny` policy that rejects
+  NSG rules with `sourceAddressPrefix: *` and `access: Allow`.
+* The NSG *module* (in `alz-modules`) bakes in mandatory baseline rules by
+  default and exposes only constrained inputs for app‑specific additions.
+
+This keeps the blast radius narrow (app team can only affect their own
+subscription) while the security team governs the guardrails, not the
+individual rules.
+
+> 📘 For legitimate exceptions (a legacy app that genuinely needs a broad rule
+> temporarily), use an **Azure Policy exemption** with an expiry date, linked
+> to a reviewed and approved security ticket — never an ad‑hoc NSG edit.
+
+### Azure Firewall rules — platform‑owned resource, app‑sourced knowledge
+
+The Azure Firewall sits in the connectivity subscription. The platform team
+owns the firewall configuration. But the *knowledge* of which TCP/UDP flows
+each application needs lives with the app teams — and platform engineers
+can't write rules they don't understand.
+
+**Recommended pattern: PR‑based request flow with optional data‑driven automation.**
+
+**Level 1 — PR‑based requests** (works for any team size):
+
+* App teams submit a PR to the **platform repo** adding their required
+  firewall rules (a new `.tfvars` block, a YAML manifest, or a Terraform
+  `locals` entry).
+* `CODEOWNERS` requires platform team review before merge.
+* The platform pipeline applies the change to the firewall.
+* The app team describes *intent* ("app01 needs HTTPS egress to
+  `api.contoso.com`"); the platform team translates to firewall syntax and
+  validates against policy.
+
+**Level 2 — data‑driven automation** (scales to many teams):
+
+* Each app team maintains a **firewall request manifest** (YAML/JSON) in
+  their *own* repo, with a versioned schema:
+
+```yaml
+# alz-landingzones/corp/app01/firewall-requests.yaml
+schema_version: "1"
+rules:
+  - name: app01-to-api
+    direction: outbound
+    protocol: TCP
+    destination: api.contoso.com
+    port: 443
+    justification: "REST API dependency — see ADR-012"
+```
+
+* A **platform pipeline** reads manifests from all app repos, validates
+  against policy (no overly broad rules, no blocked destinations), generates
+  firewall rule collections, and applies them.
+* The app team owns the intent; the platform team owns the implementation
+  and remains the final enforcement point.
+
+### Decision heuristic
+
+| Scenario | Who owns the code | Who governs |
+|----------|-------------------|-------------|
+| NSGs / UDRs in app subscriptions | App team | Policy (security team) |
+| Shared modules with safe defaults | Platform team (module) | Module API contract |
+| Central firewall / WAF rules | Platform team (via PR or automation) | CODEOWNERS review |
+| DNS records in central DNS zone | Platform team (via PR) | CODEOWNERS review |
+
+The common thread: **separate ownership of intent from ownership of
+implementation**, and enforce the boundary with policy, CODEOWNERS, or
+both. See also [11 manageability](11-manageability.md) for the CODEOWNERS
+and governance mechanics.
+
+---
+
 ## Anti‑patterns
 
 * ❌ **One mega‑repo with one giant Terraform state.** A single

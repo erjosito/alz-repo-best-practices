@@ -288,6 +288,75 @@ expensive. It's a per‑PR slice of the modules being changed.
 
 ---
 
+## Keeping environment configurations DRY — Terragrunt and alternatives
+
+Modules solve the DRY problem for *resource definitions*. A separate DRY
+problem lurks in *environment configurations*: the backend blocks, provider
+blocks, and `.tfvars` that differ per environment. When you have five
+environments × eight workloads, even a well‑structured `envs/` folder
+accumulates significant boilerplate.
+
+> 📘 **Key terms**
+>
+> **Terragrunt** — a thin wrapper around Terraform (by Gruntwork) that generates backend configs, provider blocks, and input variables from a shared template, reducing per‑environment boilerplate. It also manages cross‑stack dependencies (e.g. "the spoke needs the hub's VNet ID").
+>
+> **Atmos** — a framework by Cloud Posse that provides environment composition, stack configuration inheritance, and component orchestration for Terraform projects.
+>
+> **Terramate** — an orchestration tool that adds code generation, change detection, and execution ordering to Terraform/OpenTofu projects without wrapping the CLI.
+
+### What Terragrunt solves
+
+| Problem | Terragrunt approach |
+|---------|---------------------|
+| Duplicated backend blocks | `generate "backend"` in a root `terragrunt.hcl` |
+| Duplicated provider blocks | `generate "provider"` with inherited variables |
+| Per‑env variable files | `inputs = { ... }` inheritance from parent directories |
+| Cross‑stack dependencies | `dependency` blocks that read outputs from other stacks |
+| Execution order | `run-all plan` applies stacks in dependency order |
+
+Terragrunt remains **widely used** and solves these problems well. It was the
+de facto standard for multi‑environment Terraform orchestration from roughly
+2019 to 2023, and many mature estates run it successfully today.
+
+### Why we don't recommend it as the default for ALZ
+
+For a *typical ALZ estate* — three to five environments, a handful of
+workloads, one cloud — the extra layer often costs more than it saves:
+
+* **Additional DSL to learn.** Terragrunt's HCL‑dialect (`dependency`,
+  `generate`, `include`) is conceptually simple but adds a debugging layer
+  between the engineer and Terraform. Error messages refer to generated files,
+  not the source.
+* **Versioning surface.** You now pin Terraform *and* Terragrunt versions,
+  and their compatibility matrix is not always smooth.
+* **CI complexity.** Most pipeline examples assume `terraform plan`; Terragrunt
+  `run-all` requires different caching, parallelism, and artifact strategies.
+* **Native alternatives have closed part of the gap:**
+
+| Terragrunt capability | Native equivalent (2026) |
+|------------------------|--------------------------|
+| DRY backend config | Partial backend config (`-backend-config=`) + CI variables |
+| DRY provider config | `envs/<env>/provider.tf` shared via symlink or CI template |
+| Per‑env variables | `envs/<env>/*.tfvars` + matrix pipeline |
+| Cross‑stack data | `terraform_remote_state` data source or explicit outputs piped via CI |
+| Execution order | Pipeline DAG stages / explicit `needs:` / `dependsOn:` |
+| For Bicep | Parameter files + Deployment Stacks handle all of the above natively |
+
+Where native tooling still falls short: if your estate has dozens of
+Terraform stacks with complex inter‑dependencies and you want a single
+`run-all plan` command, Terragrunt (or Terramate) genuinely saves time.
+
+### Recommendation
+
+For most ALZ teams: a well‑structured `envs/` folder, `.tfvars` per
+environment, and a CI matrix build achieve the same DRY outcome with
+**less tooling surface**. Adopt Terragrunt (or Atmos, or Terramate) when
+the environment × workload matrix grows large enough that the native
+approach produces measurable duplication pain — not as a default starting
+point.
+
+---
+
 ## Anti‑patterns
 
 * ❌ **`main` deploys straight to prod with no non‑prod stop.** The classic
