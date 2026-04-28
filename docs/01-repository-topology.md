@@ -205,6 +205,37 @@ ownership boundaries:
 ### When it works
 **This is the right answer for ~80 % of enterprise ALZ implementations.**
 
+> ⚖️ **The debate — monorepo vs few‑repo for IaC**
+>
+> The recommendation above ("layered few‑repo for ~80 % of enterprises")
+> reflects the mainstream ALZ guidance, but informed practitioners
+> disagree.
+>
+> **The monorepo case:** Major tech companies (Google, Meta) operate
+> massive monorepos successfully. Their argument: a single source of
+> truth eliminates version‑skew between layers, makes cross‑cutting
+> refactors atomic, and improves discoverability ("everything is `grep`‑able
+> in one place"). With CODEOWNERS, path‑scoped branch rules, and mature
+> CI (path filters + matrix builds), monorepos can enforce ownership
+> boundaries nearly as well as separate repos — without the coordination
+> overhead of 60 PRs for a module bump. Terragrunt and Nx/Turborepo make
+> monorepos practical even at scale.
+>
+> **The few‑repo case:** In regulated enterprises, repo‑level access
+> control is simpler to audit than path‑level CODEOWNERS. Independent
+> release cadences (foundation = quarterly, workloads = daily) are
+> naturally expressed by separate repos with separate pipelines. The
+> psychological effect matters too: an app engineer who can see and
+> accidentally edit foundation code is a risk no CODEOWNERS file fully
+> mitigates.
+>
+> **Where the industry stands (2026):** Most Azure‑focused guidance
+> (CAF, ALZ accelerators) defaults to few‑repo. Most Terraform‑community
+> guidance defaults to either monorepo + Terragrunt or multi‑repo +
+> registry. Neither is wrong — the choice hinges more on your team's Git
+> maturity and regulatory posture than on any inherent technical
+> superiority.
+
 If you're still uncertain which model best fits your situation, the questions below will cut through the ambiguity in short order.
 
 ---

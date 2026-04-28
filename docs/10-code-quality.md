@@ -57,6 +57,21 @@ make plan ENV=nonprod WORKLOAD=connectivity
 …and see a meaningful plan within **five minutes** of the first `git
 clone`. Anything more is friction tax you pay forever.
 
+> ⚖️ **The debate — is five minutes realistic?**
+>
+> Five minutes is aspirational and achievable for small‑to‑mid repos,
+> but practitioners managing large estates (100+ modules, heavy provider
+> sets) report that `terraform init` alone can take 2–3 minutes, and
+> devcontainer image pulls add another 2–5 on first use. Hitting the
+> five‑minute target at scale requires pre‑built devcontainer images
+> (ongoing maintenance cost), local provider caching, and carefully
+> curated module sets — effort that not every team can justify.
+>
+> A more realistic goal for large estates: **under fifteen minutes** to
+> first meaningful plan. Still fast, less likely to set an expectation
+> that fails on day one. The five‑minute target remains the *aspiration*;
+> document what your actual number is and actively work to reduce it.
+
 The two ingredients: **devcontainers** and **a `Makefile` (or `Taskfile`)**.
 
 ---

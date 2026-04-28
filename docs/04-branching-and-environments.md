@@ -159,6 +159,33 @@ feature/* → ephemeral
 **Recommendation:** use it only if your compliance team mandates it. Even
 then, push back hard.
 
+> ⚖️ **The debate — trunk‑based vs branch‑per‑environment**
+>
+> This guide recommends trunk‑based development, but the question is far
+> from settled — especially in regulated industries.
+>
+> **The case for branch‑per‑environment:** Some compliance regimes (financial
+> services, government, healthcare) map approval gates to *branches*, not
+> deployments. Their auditors aren't confused — they genuinely want a
+> branch‑level audit trail where a prod release corresponds to a merge
+> event, not a CI gate. Teams with strict change advisory boards,
+> quarterly release windows, or multi‑tenant environments that must not
+> drift between stages find branch‑per‑environment easier to govern.
+>
+> **The case for trunk‑based:** Fewer long‑lived branches means fewer
+> merge conflicts, fewer forgotten cherry‑picks, and a single source of
+> truth. Environment differences live in parameter files, not in code
+> divergence. Most modern CI systems can provide the same audit trail via
+> deployment approvals and environment protection rules.
+>
+> **Where the industry stands (2026):** Trunk‑based is the dominant
+> recommendation in the DevOps literature (DORA research, Google's
+> engineering practices), but enterprise adoption is uneven. Many teams
+> that switched to trunk‑based report fewer incidents; others reverted
+> after losing the "branch = frozen artifact" guarantee their auditors
+> expected. There is no single right answer — the best model depends on
+> your release cadence, audit requirements, and team discipline.
+
 Whichever branching model you commit to, the next question is what your environment estate actually looks like — how many environments, what each one is for, and who controls access to it.
 
 ---
@@ -354,6 +381,29 @@ environment, and a CI matrix build achieve the same DRY outcome with
 the environment × workload matrix grows large enough that the native
 approach produces measurable duplication pain — not as a default starting
 point.
+
+> ⚖️ **The debate — Terragrunt and DRY orchestrators**
+>
+> The recommendation above ("start native, adopt Terragrunt when the pain
+> is real") is itself debated.
+>
+> **The counter‑argument:** Experienced practitioners — including
+> Gruntwork, Cloud Posse, and many platform engineers managing 50+
+> landing zones — argue that Terragrunt's overhead is modest compared to
+> the duplication and orchestration bugs you accumulate without it. They
+> point out that "native equivalents" (symlinks, `-backend-config=`, CI
+> variable injection) are fragile workarounds that break in non‑obvious
+> ways, whereas Terragrunt's `dependency` blocks and `run-all` give you a
+> tested, deterministic execution graph. From their perspective, the
+> advice to "wait until it hurts" means you only adopt good tooling
+> *after* accruing tech debt — the equivalent of saying "don't write
+> tests until you have bugs."
+>
+> **Our position:** For a small‑to‑mid ALZ (fewer than ~15 stacks), the
+> native approach is simpler and has a lower bus‑factor risk. Beyond
+> that threshold the tradeoff tilts, and a DRY orchestrator becomes the
+> pragmatic choice. Reasonable engineers disagree on where the tipping
+> point is.
 
 ---
 

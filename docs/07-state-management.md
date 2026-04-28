@@ -76,7 +76,21 @@ Not all backends are created equal for enterprise use. The choice affects lockin
 | `azurerm` (Azure Storage) | **Default for Azure‑native shops.** Supports OIDC, blob lease locking, CMK, private endpoint. |
 | Terraform Cloud / Enterprise (HCP) | Strong if you also want run UI, Sentinel policy, and dynamic provider credentials. Costs money. |
 | `s3` + DynamoDB | Only if you genuinely have AWS in the picture. |
-| Local state | **Never.** Not even for dev. |
+| Local state | **Never.** Not even for dev. ¹ |
+
+¹ *This is a strong stance — see the debate box below.*
+
+> ⚖️ **The debate — local state in sandbox environments**
+>
+> "Never local state, not even for dev" is the safest blanket rule, but
+> practitioners with personal sandbox subscriptions and aggressive
+> auto‑cleanup policies (e.g. Azure subscription lifecycle management,
+> nightly resource‑group purge) argue that remote state adds unnecessary
+> ceremony for truly disposable, exploratory work. A more nuanced
+> position: **remote state for anything that persists or is shared; local
+> state is acceptable for isolated sandboxes with automatic teardown** —
+> provided the team understands this is a *conscious* exception, not the
+> default.
 
 ### Recommended `azurerm` backend setup
 
@@ -311,6 +325,34 @@ az stack sub create \
 Tradeoff vs raw `az deployment`: stacks are slower to create but vastly
 safer for production. For ephemeral PR environments, raw deployments are
 fine; for prod, stacks.
+
+> ⚖️ **The debate — are Deployment Stacks production‑ready at scale?**
+>
+> Deployment Stacks GA'd in late 2024 and are maturing rapidly, but the
+> community has less collective operational experience with them than
+> with Terraform state, which has a decade of battle scars.
+>
+> **Concerns from practitioners:** `what-if` for stacks is still in
+> preview (as of early 2026) and less reliable than `terraform plan`.
+> Tooling around stacks — refactoring, automated drift detection, import
+> of existing resources — is thinner than Terraform's mature ecosystem
+> (Spacelift, Env0, state‑mv, etc.). Teams running early production
+> stacks have reported edge cases with complex resource dependencies and
+> `denySettings` interactions that are not yet well‑documented. Migration
+> from Blueprints is documented but not extensively battle‑tested by the
+> community.
+>
+> **The optimistic view:** Stacks remove an *entire category* of
+> operational pain (state corruption, lock contention, backend
+> availability). Microsoft is investing heavily, and the feature set is
+> advancing quickly. For new Bicep estates, stacks are the obvious
+> default; the rough edges are real but narrowing.
+>
+> **Bottom line:** If you're starting greenfield with Bicep, Deployment
+> Stacks are the right bet. If you're evaluating a migration *from*
+> Terraform specifically to avoid state, make sure you're gaining more
+> than you're giving up in ecosystem maturity. Test thoroughly in
+> non‑prod before trusting `denySettings` with your production estate.
 
 ### Deployment Stacks vs Azure Blueprints (deprecated)
 

@@ -96,6 +96,36 @@ Azure resources.
 are reference implementations — useful as scaffolding, not as your enterprise
 standard.
 
+> ⚖️ **The debate — must every estate adopt AVM?**
+>
+> AVM is positioned as the default tier‑1 source above, but not everyone
+> agrees.
+>
+> **The case for custom tier‑1 modules:** Organisations with mature,
+> battle‑tested module libraries (some pre‑dating AVM by years) argue
+> that migrating to AVM for standardisation's sake is cost without
+> benefit. AVM modules are deliberately generic — they expose every
+> parameter to stay broadly useful, which means your team still writes
+> opinionated wrappers on top. If you already *have* those opinionated
+> modules, AVM adds a layer without removing one. Additionally, AVM
+> coverage, while broad, is not complete: niche resources or preview
+> features may lag, forcing you to maintain custom modules alongside AVM
+> anyway.
+>
+> **The case for AVM:** Starting from AVM means you inherit ongoing
+> security patches, WAF alignment updates, and community contributions
+> without maintaining them yourself. For greenfield estates or teams
+> without a mature module library, building custom tier‑1 modules from
+> scratch is reinventing work Microsoft already maintains. AVM's
+> predictable interface (`diagnostic_settings`, `private_endpoints`,
+> `role_assignments`) also makes onboarding faster across teams.
+>
+> **Pragmatic middle ground:** Treat AVM as *default*, not *mandatory*.
+> Use it where it covers your needs and wrap it where it doesn't. Don't
+> force‑migrate stable custom modules that are actively maintained and
+> well‑tested — that's disruption for compliance's sake, not
+> engineering's.
+
 ### Bicep AVM example
 
 ```bicep

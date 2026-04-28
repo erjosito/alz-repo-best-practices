@@ -240,6 +240,31 @@ run "creates_hub_vnet" {
 * **Workload repos:** integration tests are usually unnecessary if your
   modules are well‑tested. Plan/policy checks suffice.
 
+> ⚖️ **The debate — can you skip integration tests for workloads?**
+>
+> The advice above ("plan/policy checks suffice for workloads") saves
+> time and CI cost, but it's a **risk acceptance decision**, not a
+> universal best practice.
+>
+> **The counter‑argument:** Modules are unit‑tested in isolation; they
+> validate that *the module* works, not that *your specific composition*
+> of modules works. Unique parameter combinations, conditional feature
+> flags, cross‑module data flows, and custom policies can all produce
+> failures that only integration tests catch. Teams that have deployed
+> workload changes relying solely on plan‑time checks have hit issues —
+> resource dependency ordering, eventual‑consistency race conditions,
+> private‑endpoint DNS propagation — that only manifest at apply time.
+>
+> **When skipping is reasonable:** If your tier‑2 modules are heavily
+> tested, your workload compositions are simple (thin wrappers calling
+> modules with `.tfvars`), and you have strong runtime policy as a safety
+> net, the residual risk may be low enough to accept.
+>
+> **When it isn't:** If workloads compose modules with complex
+> conditionals, `for_each` over dynamic data, or cross‑stack references,
+> integration tests on the *composition* are the only way to catch
+> interaction bugs before production.
+
 At this point you have checks at every stage of development. There is still a gap: what prevents someone creating a non-compliant resource directly through the portal? That is where Azure Policy comes in — and it needs to stay in sync with everything above.
 
 ---

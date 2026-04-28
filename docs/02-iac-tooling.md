@@ -42,6 +42,32 @@ The short version, before we go deeper into each tool's strengths and failure mo
 what tomorrow*. The right answer is whichever your engineers can operate
 confidently at 2 a.m.
 
+> ⚖️ **The debate — is "team skill" really the deciding factor?**
+>
+> The "2 a.m." framing is popular advice, but critics argue it
+> understates real structural differences between the tools.
+>
+> **The Bicep case beyond skills:** Bicep + Deployment Stacks eliminates
+> an entire class of operational problems — state corruption, state
+> surgery, backend lock contention, `terraform_remote_state` coupling —
+> that affect even skilled Terraform operators. A mediocre team on Bicep
+> may produce *safer* infrastructure than a good team on Terraform,
+> simply because fewer things can go catastrophically wrong at 2 a.m.
+>
+> **The Terraform case beyond skills:** `terraform plan` output is
+> genuinely more reliable for code review than `az deployment what-if`
+> (which still has known gaps). Terraform's ecosystem of third‑party
+> providers means you manage GitHub repos, Datadog monitors, PagerDuty
+> schedules, and Azure resources in one workflow — Bicep can't. And for
+> teams already running Terraform, migration cost is real and rarely
+> justified by Bicep's simplicity alone.
+>
+> **Where the industry stands (2026):** Azure‑only greenfield projects
+> increasingly default to Bicep; brownfield and multi‑cloud estates stay
+> on Terraform. The "skills" heuristic is a useful tiebreaker, but
+> pretending the tools are interchangeable undersells the architectural
+> implications of each choice.
+
 ---
 
 ## The contenders
