@@ -27,7 +27,14 @@ Thirteen chapters of design decisions, tradeoffs, and recommendations culminate 
 
 ## Tooling & versioning
 
-* ❌ **Authoring ARM JSON by hand.** Use Bicep.
+* ❌ **Large ARM JSON templates without tooling assistance.** Raw ARM JSON
+  is 3–5× more verbose than Bicep or Terraform equivalents, making PR
+  reviews harder, merge conflicts more frequent, and resource references
+  error‑prone (`[resourceId(...)]` chains). The VS Code ARM extension
+  and ARM TTK mitigate some of this, but at scale a higher‑level
+  language (Bicep, Terraform, Pulumi) with modules, loops, and
+  type‑checked references pays for itself quickly. See
+  [02](02-iac-tooling.md).
 * ❌ **Floating versions** (`source = "...?ref=main"`, `version = "latest"`).
   Reproducibility gone.
 * ❌ **GitHub Actions referenced by mutable tags** (`@v3`). Pin by SHA.
