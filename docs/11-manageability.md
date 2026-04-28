@@ -94,6 +94,34 @@ Drift is changes made to Azure resources outside your IaC. It happens — a
 firefighter clicks in the portal, an automation script bypasses the
 pipeline. Make it visible.
 
+### A commonly overlooked drift source: Modify and DINE policies
+
+Not all drift comes from humans. **Modify** and **DeployIfNotExists
+(DINE)** Azure policies deliberately change or create resources outside
+your IaC pipeline — and they're *supposed* to. A DINE policy that adds
+diagnostic settings to every new storage account is doing its job, but
+`terraform plan` will report those settings as drift because the state
+file never knew about them.
+
+This creates a tension:
+
+* **Suppress the diff** (e.g. `ignore_changes` in Terraform, or omit the
+  property from Bicep) and accept that the policy is the source of truth
+  for that attribute. Clean drift reports, but the IaC no longer describes
+  the full resource.
+* **Codify the policy's effect** in your IaC so the plan matches reality.
+  Complete resource description, but duplicates intent already expressed
+  by the policy — and changes to the policy require matching IaC updates.
+* **Accept the noise** and train the team to recognise known policy‑induced
+  diffs during triage. Honest, but erodes trust in drift reports over time.
+
+There is no universally agreed best practice here. Many teams use a
+hybrid: `ignore_changes` for attributes managed *exclusively* by policy
+(e.g. diagnostic settings added by DINE), and codify attributes where
+the IaC and policy must agree (e.g. TLS version enforced by Modify).
+Document which approach you chose and why — undocumented `ignore_changes`
+blocks are a maintenance hazard.
+
 ### Pattern: scheduled `plan` / `what-if`
 
 ```yaml
