@@ -314,6 +314,81 @@ For deny vs audit:
 * **Deny**: steady state for any control where remediation is cheap and
   the violation has a real impact.
 
+### Built‑in policy versioning
+
+Azure built‑in policies now carry a **`version` field** in their
+metadata (SemVer: `MAJOR.MINOR.PATCH`). Microsoft updates built‑in
+definitions in place — your existing assignments automatically pick up
+the latest version unless you pin to a specific one.
+
+This creates a **silent drift risk**: a built‑in policy you assigned two
+years ago may have changed its logic, added parameters, or expanded its
+scope. Your compliance posture shifts without a PR, a review, or a test
+in *your* pipeline.
+
+Mitigations:
+
+* **Snapshot built‑in definitions in your repo.** Export the JSON of
+  every built‑in you assign (via `az policy definition show` or the
+  [Azure/azure-policy](https://github.com/Azure/azure-policy) repo) and
+  store it alongside your assignments. A scheduled CI job diffs the
+  live definition against your snapshot and opens a PR when the version
+  changes — giving your team a chance to review before accepting.
+* **Subscribe to the Azure Policy changelog.** Microsoft publishes
+  [built‑in policy change logs](https://learn.microsoft.com/azure/governance/policy/concepts/built-in-policy-changes);
+  feed them into your governance channel.
+* **Test assignments, not just definitions.** When a built‑in updates,
+  re‑run your compliance scan against your fixture resources to verify
+  the new version doesn't flag resources that were previously compliant
+  (false positives) or miss resources that should be flagged (false
+  negatives).
+
+### The custom → built‑in lifecycle
+
+A common pattern in maturing ALZ estates:
+
+1. **You write a custom policy** because no built‑in exists for a
+   specific control (e.g. "deny storage accounts without infrastructure
+   encryption").
+2. **Months later, Microsoft ships a built‑in** that covers the same
+   control — often with better alias coverage, edge‑case handling, and
+   ongoing maintenance.
+3. **You now maintain a custom policy that duplicates a built‑in** —
+   accruing maintenance cost and risking divergence.
+
+The responsible lifecycle:
+
+* **Inventory custom policies quarterly.** For each, check whether a
+  built‑in equivalent now exists. The
+  [Azure/azure-policy](https://github.com/Azure/azure-policy) repo and
+  `az policy definition list --filter "policyType eq 'BuiltIn'"` are
+  your search tools.
+* **Don't auto‑swap.** A built‑in may have different parameter names,
+  a broader or narrower scope, or different default values. Test the
+  built‑in against your estate in audit mode before replacing.
+* **Migration steps:**
+  1. Assign the built‑in in **audit mode** alongside the custom policy.
+  2. Compare compliance results — they should match. Investigate
+     discrepancies.
+  3. Once confident, remove the custom assignment and flip the built‑in
+     to **deny** (or whichever effect applies).
+  4. Retire (but keep archived) the custom definition.
+* **Tag custom policies with `lifecycle: custom-pending-review`** so
+  your quarterly inventory script can flag them automatically.
+
+> ⚖️ **The debate — should you always prefer built‑ins?**
+>
+> Built‑ins are maintained by Microsoft and get free updates, but they
+> are also **opaque**: you can't modify their logic, and a version bump
+> can change behaviour without your consent. Custom policies give you
+> full control at the cost of full maintenance. Some teams prefer to
+> *wrap* built‑ins in initiatives with explicit version pins and treat
+> the built‑in as an upstream dependency (similar to how you'd pin a
+> module version). Others mandate custom‑only for critical controls so
+> that *every* change flows through their PR process. Neither approach is
+> universally superior — the right balance depends on how much governance
+> automation your team can sustain.
+
 ---
 
 ## Test coverage targets
