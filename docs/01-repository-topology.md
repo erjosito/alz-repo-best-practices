@@ -318,11 +318,40 @@ rules:
 | NSGs / UDRs in app subscriptions | App team | Policy (security team) |
 | Shared modules with safe defaults | Platform team (module) | Module API contract |
 | Central firewall / WAF rules | Platform team (via PR or automation) | CODEOWNERS review |
-| DNS records in central DNS zone | Platform team (via PR) | CODEOWNERS review |
+| DNS records in central DNS zone | Platform team (via PR) or app team (with DNS sharding) | CODEOWNERS review / zone‑level RBAC |
 
 The common thread: **separate ownership of intent from ownership of
 implementation**, and enforce the boundary with policy, CODEOWNERS, or
-both. See also [11 manageability](11-manageability.md) for the CODEOWNERS
+both.
+
+### DNS sharding — reducing blast radius for central DNS
+
+Private DNS zones in a hub subscription are a classic ownership bottleneck:
+every app team needs records, but a single zone like
+`privatelink.blob.core.windows.net` is a shared, high‑blast‑radius resource.
+One bad PR can break name resolution for every workload in the estate.
+
+**DNS sharding** splits the problem by delegating ownership at the zone or
+sub‑zone level:
+
+* **Zone‑per‑workload for private endpoints.** Instead of one monolithic
+  `privatelink.*.core.windows.net` zone, create per‑workload zones
+  (or use Azure policy to auto‑register into the correct zone). Each zone
+  has its own RBAC, its own state/stack, and its own blast radius.
+* **Sub‑zone delegation for app‑owned records.** Delegate
+  `app01.internal.contoso.com` to the app team's subscription. The platform
+  team owns `internal.contoso.com` and the NS delegation; the app team
+  manages records in their delegated zone autonomously.
+* **Separate state/stack per DNS zone.** Even without delegation, putting
+  each zone in its own Terraform state or Deployment Stack means a bad
+  `apply` affects only one zone, not all of DNS.
+
+The tradeoff is more zones to manage and more VNet links to maintain. For
+estates with fewer than ~10 workloads, a single zone with PR‑based
+governance is simpler. Beyond that, sharding pays for itself in reduced
+coordination cost and smaller blast radius.
+
+See also [11 manageability](11-manageability.md) for the CODEOWNERS
 and governance mechanics.
 
 ---
