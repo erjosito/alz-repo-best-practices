@@ -71,6 +71,17 @@ layered repo it's the difference between governance and chaos.
 Combine with **branch protection** that *requires* CODEOWNERS review.
 Without that requirement, CODEOWNERS is informational only.
 
+> 💡 **CODEOWNERS complexity scales with repo size.** The example above
+> assumes a single repo containing foundation, platform, and landing
+> zones — the monorepo model. In practice, the recommended
+> [layered few‑repo topology](01-repository-topology.md) splits these
+> into separate repos, which means each repo's CODEOWNERS file stays
+> short and obvious (a handful of rules instead of hundreds). If you
+> *do* run a monorepo or a large shared landing‑zone repo, expect the
+> CODEOWNERS file to grow with every onboarded team — review it
+> quarterly, and consider generating it from a source‑of‑truth YAML to
+> avoid stale entries.
+
 Review the file quarterly — leavers, reorgs, retired apps.
 
 Ownership governance tells you *who* must approve a deliberate change — but it says nothing about changes that never went through the PR process at all. Detecting those requires something more active.
