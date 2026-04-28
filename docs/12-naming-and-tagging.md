@@ -52,6 +52,47 @@ gets violated immediately. Aim for **rigorous but humane**.
 
 With the case for rigour established, here is what rigour looks like in practice — starting with the naming convention itself.
 
+> ⚖️ **The debate — do you even need a naming convention?**
+>
+> A provocative but defensible position: name every resource with a
+> random identifier (or let Terraform/Bicep generate one), and rely
+> entirely on **tags** and **Azure Resource Graph queries** for
+> discoverability, cost reporting, and ownership. After all, the
+> resource's metadata — subscription, resource group, type, tags — already
+> tells you everything the name encodes, and unlike names, tags are
+> mutable when your conventions change. Location in the name? The
+> resource *has* a `location` property. Environment? That's a tag. Why
+> duplicate it in a string with a 24‑character limit?
+>
+> **The case for meaningful names:** Humans still read names — in portal
+> URLs, `az` CLI output, cost exports, alert emails, and (critically) in
+> 2 a.m. incident logs where you need to recognise the resource *before*
+> you have time to query its tags. A name like `kv-platform-prod-swc-01`
+> is instantly parsed by a human; `kv-7f3a2c91` requires a lookup.
+> Community experience on Reddit and in DevOps forums consistently
+> reports that GUID‑named estates become unnavigable at scale, especially
+> when tags are inconsistently applied — which, despite policy
+> enforcement, happens more often than anyone admits.
+>
+> **The case for random/generated names:** Naming conventions create a
+> false sense of order. They embed assumptions (region, environment) that
+> become wrong when resources move or conventions evolve. They hit length
+> limits on storage accounts and key vaults, producing ugly truncations.
+> And they tempt engineers into *parsing* names programmatically instead
+> of using proper metadata — a brittle pattern that breaks the moment the
+> convention changes. Some teams (particularly those with mature
+> automation and strict tag enforcement) report success with generated
+> names + rich tags.
+>
+> **Where the industry stands (2026):** The overwhelming majority of
+> Azure guidance (CAF, WAF, ALZ accelerators) recommends structured
+> naming conventions. But the *strongest* argument for conventions is a
+> *human factors* one, not a technical one: people debug faster when names
+> mean something. If your estate is fully automated and humans rarely
+> read raw resource names, the argument weakens. In practice, most teams
+> adopt a convention *and* enforce tags — treating names as a
+> human‑readable index and tags as the machine‑readable source of truth.
+
 ---
 
 ## Naming convention
