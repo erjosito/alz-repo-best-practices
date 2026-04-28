@@ -1,5 +1,22 @@
 # References & further reading
 
+**In this chapter:**
+
+- [Microsoft — Cloud Adoption Framework](#microsoft-cloud-adoption-framework)
+- [Microsoft — Bicep & Deployment Stacks](#microsoft-bicep-deployment-stacks)
+- [Microsoft — Identity & Security](#microsoft-identity-security)
+- [Microsoft — Governance & Policy](#microsoft-governance-policy)
+- [Azure Verified Modules](#azure-verified-modules)
+- [ALZ accelerators](#alz-accelerators)
+- [Terraform / OpenTofu](#terraform-opentofu)
+- [GitHub](#github)
+- [Azure DevOps](#azure-devops)
+- [Policy / scanning tools](#policy-scanning-tools)
+- [Developer experience](#developer-experience)
+- [Documentation](#documentation)
+- [Methodology / metrics](#methodology-metrics)
+
+
 [← 14 Anti-patterns](14-anti-patterns.md) · [Index](../README.md)
 
 A consolidated list of the external references cited across this guide.

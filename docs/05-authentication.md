@@ -1,5 +1,21 @@
 # 05 · Authentication & identity for pipelines
 
+**In this chapter:**
+
+- [How we got here](#how-we-got-here)
+- [The hard rule](#the-hard-rule)
+- [What to use, by runner](#what-to-use-by-runner)
+- [OIDC federation — how it actually works](#oidc-federation-how-it-actually-works)
+- [SPN vs Managed Identity vs User‑Assigned MI with federation](#spn-vs-managed-identity-vs-userassigned-mi-with-federation)
+- [RBAC scope — least privilege per environment](#rbac-scope-least-privilege-per-environment)
+- [Authenticating to other systems](#authenticating-to-other-systems)
+- [Developer access](#developer-access)
+- [Audit & rotation](#audit-rotation)
+- [Multi‑tenant scenarios](#multitenant-scenarios)
+- [Anti‑patterns](#antipatterns)
+- [References](#references)
+
+
 > **Decision:** how do CI/CD runners and engineers authenticate to Azure
 > without ever holding a long‑lived secret?
 

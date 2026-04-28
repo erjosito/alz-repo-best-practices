@@ -1,5 +1,22 @@
 # 06 · Secrets & supply‑chain security
 
+**In this chapter:**
+
+- [How we got here](#how-we-got-here)
+- [The threat model](#the-threat-model)
+- [Secrets in code — eliminate, don't manage](#secrets-in-code-eliminate-dont-manage)
+- [Branch protection that matters](#branch-protection-that-matters)
+- [Supply‑chain hygiene](#supplychain-hygiene)
+- [Signed commits](#signed-commits)
+- [Securing CI runners](#securing-ci-runners)
+- [Workflow hardening (GitHub Actions)](#workflow-hardening-github-actions)
+- [State file security (Terraform)](#state-file-security-terraform)
+- [Policy / compliance gates](#policy-compliance-gates)
+- [Incident playbook (one paragraph)](#incident-playbook-one-paragraph)
+- [Anti‑patterns](#antipatterns)
+- [References](#references)
+
+
 > **Decision:** how do you keep credentials out of code, prove the integrity
 > of what's deployed, and stay ahead of supply‑chain attacks?
 

@@ -1,5 +1,20 @@
 # 11 · Manageability & day‑2 operations
 
+**In this chapter:**
+
+- [How we got here](#how-we-got-here)
+- [CODEOWNERS — your first line of governance](#codeowners-your-first-line-of-governance)
+- [Drift detection](#drift-detection)
+- [Blast radius management](#blast-radius-management)
+- [RBAC for the IaC system itself](#rbac-for-the-iac-system-itself)
+- [Lifecycle of a landing zone](#lifecycle-of-a-landing-zone)
+- [Runbooks (in‑repo)](#runbooks-inrepo)
+- [Cost & usage management](#cost-usage-management)
+- [Observability of the IaC pipeline itself](#observability-of-the-iac-pipeline-itself)
+- [Anti‑patterns](#antipatterns)
+- [References](#references)
+
+
 > **Decision:** how do you keep an ALZ healthy after the first deploy —
 > ownership, drift, blast radius, lifecycle, and runbooks?
 

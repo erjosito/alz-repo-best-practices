@@ -1,5 +1,21 @@
 # 04 · Branching, environments & promotion
 
+**In this chapter:**
+
+- [How we got here](#how-we-got-here)
+- [The two questions you must answer](#the-two-questions-you-must-answer)
+- [Recommended: trunk‑based + folder‑per‑environment](#recommended-trunkbased-folderperenvironment)
+- [Alternative: branch‑per‑environment ("GitFlow for ops")](#alternative-branchperenvironment-gitflow-for-ops)
+- [Environment topology](#environment-topology)
+- [Promotion mechanics](#promotion-mechanics)
+- [PR requirements](#pr-requirements)
+- [Drift between environments](#drift-between-environments)
+- [Ephemeral environments](#ephemeral-environments)
+- [Keeping environment configurations DRY — Terragrunt and alternatives](#keeping-environment-configurations-dry-terragrunt-and-alternatives)
+- [Anti‑patterns](#antipatterns)
+- [References](#references)
+
+
 > **Decision:** how does a change flow from a developer laptop to production,
 > and how does the Git branching model map to environments?
 

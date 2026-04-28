@@ -1,5 +1,20 @@
 # 07 · State management
 
+**In this chapter:**
+
+- [How we got here](#how-we-got-here)
+- [Why this is not a footnote](#why-this-is-not-a-footnote)
+- [Terraform backend choice](#terraform-backend-choice)
+- [Locking](#locking)
+- [Blast radius — how to size state files](#blast-radius-how-to-size-state-files)
+- [Cross‑state references](#crossstate-references)
+- [State surgery — when you must](#state-surgery-when-you-must)
+- [Bicep — Deployment Stacks](#bicep-deployment-stacks)
+- [Drift detection](#drift-detection)
+- [Anti‑patterns](#antipatterns)
+- [References](#references)
+
+
 > **Decision:** for Terraform, where does state live, how is it locked, and
 > what is the blast radius of a single `apply`? For Bicep, the equivalent
 > question is how you carve up Deployment Stacks.

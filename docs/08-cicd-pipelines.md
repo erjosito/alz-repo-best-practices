@@ -1,5 +1,21 @@
 # 08 · CI/CD pipeline patterns
 
+**In this chapter:**
+
+- [How we got here](#how-we-got-here)
+- [GitHub Actions vs Azure DevOps Pipelines](#github-actions-vs-azure-devops-pipelines)
+- [The standard two‑workflow shape](#the-standard-twoworkflow-shape)
+- [Reusable workflow (the actual work)](#reusable-workflow-the-actual-work)
+- [PR comments that are actually useful](#pr-comments-that-are-actually-useful)
+- [Detecting changed environments](#detecting-changed-environments)
+- [Pipeline‑as‑code, but DRY](#pipelineascode-but-dry)
+- [Long‑running operations & retry](#longrunning-operations-retry)
+- [Manual operations & the "break glass" pipeline](#manual-operations-the-break-glass-pipeline)
+- [Caching and runtime](#caching-and-runtime)
+- [Anti‑patterns](#antipatterns)
+- [References](#references)
+
+
 > **Decision:** what does the workflow that turns a commit into a deployed
 > Azure resource look like — and how do you keep it consistent across many
 > repos?

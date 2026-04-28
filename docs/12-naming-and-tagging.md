@@ -1,5 +1,17 @@
 # 12 · Naming, tagging & metadata conventions
 
+**In this chapter:**
+
+- [How we got here](#how-we-got-here)
+- [Why this gets a whole chapter](#why-this-gets-a-whole-chapter)
+- [Naming convention](#naming-convention)
+- [Tagging convention](#tagging-convention)
+- [Management group / subscription naming](#management-group-subscription-naming)
+- [Region strategy](#region-strategy)
+- [Anti‑patterns](#antipatterns)
+- [References](#references)
+
+
 > **Decision:** what do you call things, and what metadata travels with
 > them? The boring stuff that breaks everything if you skip it.
 

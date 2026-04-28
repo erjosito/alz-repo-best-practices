@@ -1,5 +1,17 @@
 # 02 · IaC tooling — Bicep, Terraform, ARM, Pulumi
 
+**In this chapter:**
+
+- [How we got here](#how-we-got-here)
+- [TL;DR recommendation](#tldr-recommendation)
+- [The contenders](#the-contenders)
+- [Decision criteria](#decision-criteria)
+- [Mixing engines — when, and how to survive it](#mixing-engines-when-and-how-to-survive-it)
+- [Example — same resource in both engines](#example-same-resource-in-both-engines)
+- [Anti‑patterns](#antipatterns)
+- [References](#references)
+
+
 > **Decision:** which IaC engine for which layer of the platform?
 > A monolingual estate is simpler; a bilingual estate is sometimes correct.
 

@@ -1,5 +1,22 @@
 # 14 · Anti‑patterns & common pitfalls
 
+**In this chapter:**
+
+- [Repository & code structure](#repository-code-structure)
+- [Tooling & versioning](#tooling-versioning)
+- [Authentication & secrets](#authentication-secrets)
+- [Pipelines & CI/CD](#pipelines-cicd)
+- [Modules & registries](#modules-registries)
+- [State management](#state-management)
+- [Testing & policy](#testing-policy)
+- [Code quality / DX](#code-quality-dx)
+- [Manageability / day‑2](#manageability-day2)
+- [Naming & tagging](#naming-tagging)
+- [Documentation](#documentation)
+- [Operational](#operational)
+- [A "is your repo healthy?" self‑assessment](#a-is-your-repo-healthy-selfassessment)
+
+
 > A consolidated checklist of mistakes seen in real ALZ implementations.
 > If you find yourself doing any of these, stop and reconsider.
 

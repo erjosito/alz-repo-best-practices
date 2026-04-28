@@ -1,5 +1,20 @@
 # 01 · Repository topology — monorepo vs multi‑repo
 
+**In this chapter:**
+
+- [How we got here](#how-we-got-here)
+- [Why this is the first decision you make](#why-this-is-the-first-decision-you-make)
+- [The three layers of an ALZ estate](#the-three-layers-of-an-alz-estate)
+- [Option A — Pure monorepo](#option-a-pure-monorepo)
+- [Option B — Pure multi‑repo](#option-b-pure-multirepo)
+- [Option C — Layered "few‑repo" (recommended default)](#option-c-layered-fewrepo-recommended-default)
+- [Decision framework](#decision-framework)
+- [When ownership boundaries blur — cross‑team resources](#when-ownership-boundaries-blur-crossteam-resources)
+- [Anti‑patterns](#antipatterns)
+- [Reference layouts](#reference-layouts)
+- [References](#references)
+
+
 > **Decision:** how many Git repositories will host your ALZ IaC, and what
 > belongs in each?
 

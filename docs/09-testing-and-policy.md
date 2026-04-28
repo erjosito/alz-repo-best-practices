@@ -1,5 +1,18 @@
 # 09 · Testing, validation & policy‑as‑code
 
+**In this chapter:**
+
+- [How we got here](#how-we-got-here)
+- [The testing pyramid for IaC](#the-testing-pyramid-for-iac)
+- [Layer 1 — Static checks (every commit)](#layer-1-static-checks-every-commit)
+- [Layer 2 — Policy‑as‑code on the plan](#layer-2-policyascode-on-the-plan)
+- [Layer 3 — Live integration tests](#layer-3-live-integration-tests)
+- [Policy‑as‑code vs Azure Policy](#policyascode-vs-azure-policy)
+- [Test coverage targets](#test-coverage-targets)
+- [Anti‑patterns](#antipatterns)
+- [References](#references)
+
+
 > **Decision:** what automated checks block a PR, and what's the contract
 > between platform and application teams expressed as policy?
 

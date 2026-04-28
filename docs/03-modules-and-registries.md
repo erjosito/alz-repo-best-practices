@@ -1,5 +1,18 @@
 # 03 · Modules & registries — composition, versioning, distribution
 
+**In this chapter:**
+
+- [How we got here](#how-we-got-here)
+- [The three‑tier module model](#the-threetier-module-model)
+- [Azure Verified Modules (AVM)](#azure-verified-modules-avm)
+- [Where do *your* (tier‑2) modules live?](#where-do-your-tier2-modules-live)
+- [Versioning policy](#versioning-policy)
+- [Module design checklist](#module-design-checklist)
+- [Naming and namespacing](#naming-and-namespacing)
+- [Anti-patterns](#anti-patterns)
+- [References](#references)
+
+
 > **Decision:** where do reusable modules live, how are they versioned, and
 > how do consumers pin to a known‑good revision?
 
