@@ -237,9 +237,81 @@ non‑interactively with a parameter file for repeatable bootstraps.
   the repo exists, you maintain it — updating AVM module versions,
   customising policies, adding landing zones. The accelerator doesn't
   "phone home" or auto‑update.
+* **Interactive mode** — Running `Deploy-Accelerator` with no parameters
+  launches a guided, interactive questionnaire that walks you through
+  every decision. No need to craft a parameter file upfront.
 
 You should **fork or wrap** the accelerator output, not consume it raw — see
 [03 modules & registries](03-modules-and-registries.md).
+
+> 🎥 **From the ALZ Weekly Questions** — [How to use AVM in ALZ, Bicep or Terraform?](https://www.youtube.com/watch?v=ry39tWr_SXc)
+> As of early 2025, AVM is the **only** recommended module set for new ALZ deployments. The Bicep AVM accelerator now uses Deployment Stacks natively, giving Bicep parity with Terraform's state‑based lifecycle management.
+
+#### SMB and right‑sized scenarios
+
+Not every organisation needs the full three‑subscription, multi‑region ALZ layout. The accelerator now ships **SMB (small and medium business) scenarios** that drastically reduce Day‑1 cost and complexity:
+
+| Setting | Full ALZ | SMB ALZ |
+|---------|----------|---------|
+| Subscriptions | 3+ (management, connectivity, identity) | **2** (management + connectivity combined, plus workload) |
+| Firewall SKU | Standard or Premium | **Basic** |
+| DDoS Protection | On by default | **Off** by default |
+| Regions | Multi‑region recommended | **Single region** start |
+
+The SMB scenario uses the **same modules and codebase** — only the `.tfvars` / `.bicepparam` defaults differ. This means you can grow in‑place: upgrading from Basic to Standard firewall, enabling DDoS, or adding a second region is a parameter change, not a repo migration.
+
+> 🎥 **From the ALZ Weekly Questions** — [ALZ for SMB](https://www.youtube.com/watch?v=cyLhLJEYIkU)
+> The SMB scenario was purpose‑built for organisations that need governance guardrails without enterprise‑level cost. Start small, grow in‑place.
+
+#### The ALZ library tool (`alzlibtool`)
+
+The ALZ library is a **data layer** separated from business logic — a set of JSON/YAML files that define management‑group archetypes, policy sets, and role assignments. The `alzlibtool` Go module exposes three key commands:
+
+| Command | Purpose |
+|---------|---------|
+| `alzlib check` | Validates the library files against the schema — catches errors before deployment. |
+| `alzlib generate` | Produces the JSON artefacts consumed by the Terraform provider or Bicep modules. |
+| `alzlib document` | Auto‑generates human‑readable documentation of the entire policy landscape. |
+
+The same Go module powers both the Terraform ALZ provider and the Bicep generation pipeline. The library is **composable**: you can layer ALZ base + Sovereign Landing Zone (SLZ) + your own local overrides.
+
+> 🎥 **From the ALZ Weekly Questions** — [When to use SLZ over ALZ? + alzlibtool](https://www.youtube.com/watch?v=r8h7F6IJIqw)
+> The `alzlibtool` is how both Bicep and Terraform stay in sync with the canonical ALZ policy set. Treat the library as data, the tool as compiler, and your IaC as consumer.
+
+#### Understanding the Bicep file structure
+
+If you open the Bicep accelerator output, you will find multiple `.bicep` / `.bicepparam` file pairs rather than a single monolithic template. This is not accidental — ARM has a **4 MB deployment payload limit**, and a full ALZ deployment exceeds it. The accelerator splits the deployment into separate files for management groups, policies, connectivity, and so on.
+
+A future Bicep feature — **extendable parameters** — will allow a single parameter file to feed multiple Bicep files, reducing duplication. Until then, expect some parameter repetition across files.
+
+> 🎥 **From the ALZ Weekly Questions** — [Understanding ALZ Bicep File Structure](https://www.youtube.com/watch?v=sPA3YWkQ-4s)
+> The Bicep modules can also be consumed **standalone**, without the accelerator. If you only need the connectivity module, reference it directly from the AVM registry.
+
+#### Migrating from CAF‑Enterprise‑Scale
+
+The classic `Azure/terraform-azurerm-caf-enterprise-scale` module enters its archive date on **1 August 2026**. A purpose‑built **Golang state migration tool** helps you move:
+
+1. **Phase 1 — Connectivity and management resources** (VNets, firewalls, Log Analytics). The tool reads your existing state, maps resources from CAF‑ES module addresses to AVM module addresses, and generates Terraform `import` blocks.
+2. **Phase 2 — Management groups and policies.** These are trickier because the policy structure changed between CAF‑ES and AVM. The tool produces an issues CSV listing resources that need manual attention.
+
+The migration tool works from **any CAF‑ES version** — you don't need to be on the latest before migrating. However, older versions produce more entries in the issues CSV.
+
+**Practical advice from the ALZ team:** Only import resources you cannot easily delete and recreate (ExpressRoute circuits, firewalls with BGP sessions, DNS zones with live records). For management groups and policies, consider a clean re‑deploy and let Deployment Stacks handle the cutover.
+
+> 🎥 **From the ALZ Weekly Questions** — [Migrating from CAF-Enterprise-Scale to AVM](https://www.youtube.com/watch?v=DSBWjQlVpSs)
+> The migration tool is also useful outside ALZ — it can recover or restructure any Terraform state file by mapping old module addresses to new ones.
+
+#### Azure Migrate agent for platform landing zones
+
+A preview **Azure Migrate agent** builds on top of the accelerator (it is not a replacement). Available in the Azure portal and VS Code, it lets you describe your desired landing zone in natural language and generates the accelerator configuration:
+
+* Grounded on CAF and ALZ documentation — recommendations are not hallucinated.
+* Uses an **MCP server** for customisation — you can extend it with your own policies or naming conventions.
+* Includes **cost estimation** so you can see the monthly impact before deploying.
+* Currently **Terraform‑only**; Bicep support is planned.
+
+> 🎥 **From the ALZ Weekly Questions** — [Azure Migrate Agent Preview](https://www.youtube.com/watch?v=kFS9lNPuXxM) and [Azure Migrate Agent Deep Dive](https://www.youtube.com/watch?v=ODaFlsja308)
+> The Migrate agent is ideal for initial exploration and configuration generation. For production deployments, always review the generated output before applying.
 
 With all the options on the table, the practical question is which combination actually fits your team and organisation.
 
@@ -395,6 +467,15 @@ Most IaC tool mistakes fall into two camps: picking a tool for the wrong reasons
   one Datadog dashboard" — use the Datadog provider in a *separate* repo
   rather than rewriting your platform.
 * ❌ **Pulumi without a programming culture.** It will rot into spaghetti.
+* ❌ **Adopting community ALZ alternatives without due diligence.** Several
+  "vibe‑coded" open‑source ALZ implementations look polished but lack
+  testing, issue triage, and long‑term support. Before adopting any
+  community project, check: contributor count, issue history (triaged
+  regularly?), end‑to‑end test coverage, and whether the project has
+  survived more than one Azure API breaking change.
+
+> 🎥 **From the ALZ Weekly Questions** — [Community ALZ Projects + Right-Sized ALZ](https://www.youtube.com/watch?v=MznCQbT-EZw)
+> The official ALZ repository has handled ~3 000 issues, triages twice weekly, and runs end‑to‑end tests. Evaluate any alternative against that baseline.
 
 ---
 

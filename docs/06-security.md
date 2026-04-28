@@ -13,8 +13,11 @@
 - [State file security (Terraform)](#state-file-security-terraform)
 - [Policy / compliance gates](#policy-compliance-gates)
 - [Incident playbook (one paragraph)](#incident-playbook-one-paragraph)
+- [Sovereign Landing Zone (SLZ) — when compliance demands more](#sovereign-landing-zone-slz-when-compliance-demands-more)
+- [Protecting vended resources — defence in depth](#protecting-vended-resources-defence-in-depth)
 - [Anti‑patterns](#antipatterns)
 - [References](#references)
+
 
 
 > **Decision:** how do you keep credentials out of code, prove the integrity
@@ -332,6 +335,59 @@ response order is:
 
 Document this in your repo (`docs/runbooks/credential-leak.md`). When you
 need it, you won't have time to invent it.
+
+---
+
+## Sovereign Landing Zone (SLZ) — when compliance demands more
+
+The **Sovereign Landing Zone** is not a separate product — it's a **variant
+layer** that sits on top of the standard ALZ. It adds sovereignty controls
+at three levels:
+
+| Level | Controls |
+|-------|----------|
+| **L1 — Baseline** | Data residency policies, encryption requirements, audit logging to sovereign region. |
+| **L2 — Enhanced** | Confidential computing management groups, restricted service endpoints, HSM‑backed key management. |
+| **L3 — Full sovereign** | Customer‑managed keys everywhere, no data leaving the sovereign region, confidential VMs for management workloads. |
+
+SLZ uses the same ALZ library and modules — the difference is in the
+**archetype overrides** and additional policy assignments. If you later
+need to add sovereign controls to a standard ALZ, you can layer SLZ
+archetypes onto your existing configuration without re‑deploying from
+scratch.
+
+> 🎥 **From the ALZ Weekly Questions** — [When to use SLZ over ALZ?](https://www.youtube.com/watch?v=r8h7F6IJIqw)
+> Think of SLZ as a composable overlay: ALZ base + SLZ layer + your local customisations. The `alzlibtool` handles the composition.
+
+---
+
+## Protecting vended resources — defence in depth
+
+When subscription vending creates baseline resources (resource groups,
+networking, diagnostic settings), the platform team needs to prevent
+workload teams from accidentally modifying or deleting them. Three
+complementary mechanisms:
+
+1. **Deny assignments via Deployment Stacks** — when the platform team's
+   Deployment Stack owns baseline resources with `denyWriteAndDelete`,
+   workload teams physically cannot modify those resources even with
+   Contributor role on the subscription.
+
+2. **RBAC at resource group scope, not subscription scope** — instead of
+   granting `Contributor` on the entire subscription, grant it only on the
+   resource groups the app team owns. The platform‑managed resource groups
+   (e.g. `rg-networking`, `rg-diagnostics`) have separate, restrictive
+   RBAC.
+
+3. **Deny‑action policies with tag‑based exclusions** — a custom deny
+   policy prevents deletion of resources tagged `managed-by: platform`.
+   App teams can manage resources without that tag freely.
+
+These mechanisms layer on top of each other — if any one fails, the others
+still protect the baseline.
+
+> 🎥 **From the ALZ Weekly Questions** — [Subscription Vending: Repo Structure, Security & Multi-Tenant](https://www.youtube.com/watch?v=11PmT0t6TUI)
+> The combination of deny assignments + scoped RBAC + tag‑based deny policies gives you defence in depth without blocking legitimate workload operations.
 
 ---
 

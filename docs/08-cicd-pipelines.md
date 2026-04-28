@@ -318,6 +318,56 @@ explodes it into parallel jobs. Touched modules trigger plan runs in
 **every** consumer environment of that module — implement that with a
 module‑to‑consumer map maintained in the repo.
 
+### Scaling to subscription vending — the git‑diff matrix pattern
+
+When your repo vends application landing zone subscriptions (see
+[01 Repository topology — subscription vending](01-repository-topology.md#subscription-vending-repo-structure-at-scale)),
+the same detect‑and‑matrix pattern scales to hundreds of subscriptions:
+
+1. Each vended subscription has a config file (`.tfvars` or `.bicepparam`)
+   in a flat or shallow directory structure (e.g. `subscriptions/app01-prod/`).
+2. The `detect-changed-envs.sh` script (or equivalent) uses `git diff` to
+   identify which subscription directories changed.
+3. The pipeline builds a **matrix** from the changed set and deploys each
+   subscription independently and in parallel — not a sequential mega‑apply.
+
+```yaml
+# GitHub Actions example — subscription vending matrix
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      subscriptions: ${{ steps.detect.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - id: detect
+        run: |
+          changed=$(git diff --name-only origin/main...HEAD \
+            | grep '^subscriptions/' \
+            | awk -F/ '{print $2}' | sort -u \
+            | jq -R . | jq -s -c .)
+          echo "changed=${changed}" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: detect
+    if: needs.detect.outputs.subscriptions != '[]'
+    strategy:
+      matrix:
+        subscription: ${{ fromJson(needs.detect.outputs.subscriptions) }}
+      max-parallel: 10
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Deploying ${{ matrix.subscription }}"
+      # ... terraform plan/apply scoped to this subscription
+```
+
+This ensures that adding a new subscription is a **single config file** —
+the pipeline discovers it automatically.
+
+> 🎥 **From the ALZ Weekly Questions** — [Subscription Vending: Repo Structure, Security & Multi-Tenant](https://www.youtube.com/watch?v=11PmT0t6TUI)
+> The git‑diff matrix pattern is the recommended CI/CD approach for subscription vending. It avoids pipeline timeouts and allows 10+ parallel deployments.
+
 Detection gives you scale; the next challenge is keeping a growing fleet of repos from drifting apart.
 
 ---

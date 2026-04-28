@@ -221,6 +221,33 @@ Rule of thumb: **a single `apply` should touch resources owned by one team
 and deployable in under 15 minutes.** If `plan` takes 20 minutes, your state
 is too big.
 
+### Subscription vending — the three‑layer state model
+
+When your estate vends (provisions) application landing zone subscriptions
+at scale, a **three‑layer state architecture** prevents the common trap of
+one giant state file managing hundreds of subscriptions:
+
+| Layer | Scope | Storage | Owned by |
+|-------|-------|---------|----------|
+| **Platform** | Management groups, policies, hub networking | Dedicated storage account in the management subscription | Platform team |
+| **Vending** | One state file per vended subscription — resource groups, baseline RBAC, VNet peering, tags | Separate storage account (or container per subscription) | Platform team (automated) |
+| **Workload** | Application resources inside the vended subscription | App team's own storage account | Application team |
+
+This separation means:
+
+* A **bad vending apply** only corrupts one subscription's scaffold, not
+  the entire estate.
+* **Parallel deployments** — each subscription's state file is independent,
+  so your CI pipeline can deploy 50 subscriptions concurrently.
+* **Clear ownership** — the platform team owns layers 1–2; the app team owns
+  layer 3. State permissions follow the same boundary.
+
+For Bicep estates, the same principle applies via Deployment Stacks: one
+stack per vended subscription, scoped at subscription level.
+
+> 🎥 **From the ALZ Weekly Questions** — [Subscription Vending: Repo Structure, Security & Multi-Tenant](https://www.youtube.com/watch?v=11PmT0t6TUI)
+> The three‑layer model also lets you use `git diff` in CI to build a matrix of changed subscriptions — only deploying what changed, not re‑planning the entire estate.
+
 ---
 
 ## Cross‑state references
@@ -310,6 +337,36 @@ import {
 
 All of the above applies to Terraform. If you are working in Bicep, you have a different but equally powerful option — one that sidesteps the state problem altogether.
 
+### Migrating state from CAF‑Enterprise‑Scale to AVM
+
+If your estate was built on the classic `Azure/terraform-azurerm-caf-enterprise-scale`
+module, you'll need a state migration to move to the AVM‑based modules. The ALZ team
+provides a **Golang state migration tool** that automates much of this:
+
+1. **Phase 1 — Connectivity and management resources.** The tool reads your existing
+   state, maps resource addresses from CAF‑ES module paths to AVM module paths, and
+   generates Terraform `import` blocks. Resources like VNets, firewalls, Log Analytics
+   workspaces, and ExpressRoute circuits move cleanly.
+2. **Phase 2 — Management groups and policies.** The policy structure differs
+   significantly between CAF‑ES and AVM. The tool produces an **issues CSV** listing
+   resources that require manual review or re‑creation.
+
+**Practical guidance:**
+
+* The tool works from **any CAF‑ES version** — you don't have to be on the latest
+  before migrating (though older versions produce more issues).
+* **Only import resources you cannot easily delete and recreate** — ExpressRoute
+  circuits, firewalls with live BGP sessions, DNS zones with active records. For
+  management groups and policies, a clean re‑deploy with Deployment Stacks handling
+  the cutover is often simpler.
+* The accelerator generates a starting Terraform configuration with migration
+  comments showing where to add `import` blocks.
+* The migration tool is **reusable** beyond ALZ — it can restructure any Terraform
+  state file by mapping old module addresses to new ones.
+
+> 🎥 **From the ALZ Weekly Questions** — [Migrating from CAF-Enterprise-Scale to AVM](https://www.youtube.com/watch?v=DSBWjQlVpSs)
+> Think of migration as resource mapping → attribute mapping → `terraform apply` with import blocks. The tool handles the first two steps; you review and apply.
+
 ---
 
 ## Bicep — Deployment Stacks
@@ -340,6 +397,15 @@ az stack sub create \
 Tradeoff vs raw `az deployment`: stacks are slower to create but vastly
 safer for production. For ephemeral PR environments, raw deployments are
 fine; for prod, stacks.
+
+A key Day‑2 benefit: when the ALZ library removes a deprecated policy
+assignment, the Deployment Stack's `actionOnUnmanage: deleteAll` setting
+**automatically cleans up the orphaned assignment** — no manual intervention
+required. This closes a gap that previously made Bicep ALZ harder to
+maintain than Terraform ALZ for policy lifecycle management.
+
+> 🎥 **From the ALZ Weekly Questions** — [How to Stay Current with ALZ Azure Policies](https://www.youtube.com/watch?v=ddcVKS_MKkk)
+> Deployment Stacks gave Bicep ALZ automatic cleanup of deprecated policies — matching what Terraform achieves through state tracking.
 
 > ⚖️ **The debate — are Deployment Stacks production‑ready at scale?**
 >

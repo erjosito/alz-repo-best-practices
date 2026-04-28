@@ -397,8 +397,107 @@ estates with fewer than ~10 workloads, a single zone with PR‑based
 governance is simpler. Beyond that, sharding pays for itself in reduced
 coordination cost and smaller blast radius.
 
+#### Private link DNS zones — centralised is usually right
+
+For **private link** DNS zones specifically (`privatelink.*.core.windows.net`,
+`privatelink.database.windows.net`, etc.), the community consensus is
+increasingly that a **single centralised set** is the right default:
+
+* **Decentralised private link zones** (one per subscription or region) lead to
+  **NXDOMAIN failures** in hybrid scenarios — on‑premises DNS forwarders can
+  only point to one zone, and cross‑subscription zone linking creates
+  operational complexity that few teams sustain.
+* **Centralised zones** with platform‑team ownership and automated record
+  creation (via Azure Policy `DeployIfNotExists` or the private endpoint's
+  built‑in DNS integration) are simpler to operate and debug.
+* For **disaster recovery**, rather than replicating zones cross‑region,
+  consider a DR runbook that redeploys the private link zones in the secondary
+  region. Some organisations accept public endpoint fallback during DR as a
+  pragmatic compromise.
+
+DNS sharding remains the right approach for **non‑private‑link zones**
+(custom domains, internal app records) where team‑level ownership is valuable.
+
+> 🎥 **From the ALZ Weekly Questions** — [Private DNS Zones: Centralized vs Decentralized](https://www.youtube.com/watch?v=WnrKlflIiwo)
+> Most customers who start with decentralised private link DNS zones eventually migrate back to centralised. The NXDOMAIN debugging alone costs more than the perceived flexibility is worth.
+
 See also [11 manageability](11-manageability.md) for the CODEOWNERS
 and governance mechanics.
+
+### Subscription vending — repo structure at scale
+
+When your ALZ "vends" (provisions) application landing zone subscriptions,
+the repo structure for subscription vending deserves its own attention:
+
+**One state file per vended subscription, not one giant state.** A single
+Terraform state managing 200 subscriptions means every `plan` touches all
+200, every apply locks all 200, and a corruption loses all 200. Instead:
+
+* **Three‑layer state architecture:**
+  1. **Platform state** — management groups, policies, hub networking
+     (in the `alz-platform` repo).
+  2. **Vending state** — one state file per vended subscription,
+     each in its own storage account or container. Contains the subscription
+     scaffold: resource groups, RBAC, networking peering, baseline tags.
+  3. **Workload state** — owned by the application team, in their own
+     repo and storage account.
+
+* **Config file per subscription:** Each vended subscription gets a
+  `.tfvars` or `.bicepparam` file in the repo. The pipeline uses `git diff`
+  to build a **matrix** of changed subscriptions and deploys only those in
+  parallel — not a sequential mega‑apply.
+
+* **Protecting vended resources** from workload teams:
+  * **Deny assignments via Deployment Stacks** — the platform team's stack
+    owns baseline resources with `denyDelete` settings.
+  * **RBAC at the resource group scope, not subscription scope** — give app
+    teams Contributor on *their* resource groups, not the subscription.
+  * **Deny‑action policies with tag‑based exclusions** — prevent deletion of
+    platform‑managed resources while allowing app teams to manage their own.
+
+> 🎥 **From the ALZ Weekly Questions** — [Subscription Vending: Repo Structure, Security & Multi-Tenant](https://www.youtube.com/watch?v=11PmT0t6TUI)
+> The git‑diff matrix pattern lets you scale to hundreds of subscriptions without pipeline timeouts. Each subscription deploys independently and in parallel.
+
+### Subscription democratisation — why more subscriptions is usually right
+
+A common early mistake is cramming multiple workloads into a single
+subscription "to save money." Subscriptions are **free** — the resources
+inside them cost money, not the subscription itself. Using fewer subscriptions
+than needed creates:
+
+* **Larger blast radius** — a misconfigured RBAC or policy affects all
+  co‑hosted workloads.
+* **Noisy‑neighbour effects** — one workload's resource locks, API throttling,
+  or quota consumption impacts others.
+* **Harder cleanup** — decommissioning a workload means surgically removing
+  resources rather than deleting a subscription.
+
+The recommended default: **one subscription per workload per environment**
+(e.g. `app01-prod`, `app01-nonprod`). This gives each workload its own
+blast radius, quota, and RBAC boundary.
+
+> 🎥 **From the ALZ Weekly Questions** — [Community ALZ Projects + Right-Sized ALZ](https://www.youtube.com/watch?v=MznCQbT-EZw)
+> Moving resources between subscriptions after the fact is painful and sometimes impossible. Start with the right subscription structure from Day 1.
+
+### Multi‑region expansion
+
+When expanding an ALZ estate to a second (or third) region:
+
+* **Start with a minimum of two regions** for your platform landing zone
+  even if workloads are initially single‑region. This establishes the
+  pattern early.
+* **Multi‑region expansion is primarily a networking exercise** —
+  management groups and policies need minimal changes (possibly a region
+  policy adjustment to allow the new location).
+* **Lightweight expansion option:** for non‑critical workloads, use
+  **global VNet peering** back to the existing hub rather than deploying
+  a full hub‑and‑spoke in the new region. This avoids the cost of a
+  second firewall, VPN gateway, and ExpressRoute circuit.
+* **Deploy a full hub** only when justified by reliability/resiliency
+  requirements and cost — not as the default.
+
+> 🎥 **From the ALZ Weekly Questions** — [Multi-Region ALZ Expansion](https://www.youtube.com/watch?v=nii_LF65zyE)
+> The cheapest multi‑region expansion is global VNet peering to the existing hub. Save the full hub deployment for workloads that genuinely need local egress.
 
 ---
 

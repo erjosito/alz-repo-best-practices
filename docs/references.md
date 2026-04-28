@@ -15,6 +15,7 @@
 - [Developer experience](#developer-experience)
 - [Documentation](#documentation)
 - [Methodology / metrics](#methodology-metrics)
+- [Community video resources](#community-video-resources)
 
 
 [← 14 Anti-patterns](14-anti-patterns.md) · [Index](../README.md)
@@ -133,6 +134,24 @@ A consolidated list of the external references cited across this guide.
 * DORA metrics — <https://dora.dev/>
 * SLSA — <https://slsa.dev/>
 * Trunk-based development — <https://trunkbaseddevelopment.com/>
+
+## Community video resources
+
+* **ALZ Weekly Questions** — YouTube playlist with best practices and Q&A from the ALZ product team:
+  <https://www.youtube.com/playlist?list=PLukmLwi08-bTb4jpVTGdgFi5adbzj54jj>
+  * Week 1: How to use AVM in ALZ, Bicep or Terraform? — <https://www.youtube.com/watch?v=ry39tWr_SXc>
+  * Week 2: When to use SLZ over ALZ? + alzlibtool — <https://www.youtube.com/watch?v=r8h7F6IJIqw>
+  * Week 3: How to Stay Current with ALZ Azure Policies — <https://www.youtube.com/watch?v=ddcVKS_MKkk>
+  * Week 4: Using EPAC for Azure Policy in ALZ — <https://www.youtube.com/watch?v=x1I_XhC6GtA>
+  * Week 5: Multi-Region ALZ Expansion — <https://www.youtube.com/watch?v=nii_LF65zyE>
+  * Week 6: Understanding ALZ Bicep File Structure — <https://www.youtube.com/watch?v=sPA3YWkQ-4s>
+  * Week 7: Migrating from CAF-Enterprise-Scale to AVM — <https://www.youtube.com/watch?v=DSBWjQlVpSs>
+  * Week 9: Community ALZ Projects + Right-Sized ALZ — <https://www.youtube.com/watch?v=MznCQbT-EZw>
+  * Week 10: Subscription Vending: Repo Structure, Security & Multi-Tenant — <https://www.youtube.com/watch?v=11PmT0t6TUI>
+  * Week 11: Azure Migrate Agent Preview — <https://www.youtube.com/watch?v=kFS9lNPuXxM>
+  * Week 12: Private DNS Zones: Centralized vs Decentralized — <https://www.youtube.com/watch?v=WnrKlflIiwo>
+  * ALZ for SMB — <https://www.youtube.com/watch?v=cyLhLJEYIkU>
+  * Azure Migrate Agent Deep Dive — <https://www.youtube.com/watch?v=ODaFlsja308>
 
 ---
 

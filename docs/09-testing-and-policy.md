@@ -334,6 +334,9 @@ metadata (SemVer: `MAJOR.MINOR.PATCH`). Microsoft updates built‑in
 definitions in place — your existing assignments automatically pick up
 the latest version unless you pin to a specific one.
 
+> 🎥 **From the ALZ Weekly Questions** — [How to Stay Current with ALZ Azure Policies](https://www.youtube.com/watch?v=ddcVKS_MKkk)
+> **Patch versions auto‑apply** — you cannot pin to a patch. Minor and major version updates require you to update the reference in your library metadata. This means your compliance posture can shift at the patch level without a PR in your repo.
+
 This creates a **silent drift risk**: a built‑in policy you assigned two
 years ago may have changed its logic, added parameters, or expanded its
 scope. Your compliance posture shifts without a PR, a review, or a test
@@ -355,6 +358,52 @@ Mitigations:
   the new version doesn't flag resources that were previously compliant
   (false positives) or miss resources that should be flagged (false
   negatives).
+
+### Updating ALZ policies — the practical workflow
+
+Whether you use Bicep or Terraform, the ALZ library is the **source of truth** for which policies are assigned and at what version. Updating policies is a routine Day‑2 operation with a well‑defined workflow:
+
+**Terraform workflow:**
+
+1. Update `metadata.json` in your repo to reference a newer ALZ library version.
+2. Run `terraform plan` — the ALZ provider dynamically pulls the library and shows what policy definitions, assignments, or role definitions changed.
+3. Review the plan output carefully — don't blindly approve.
+4. Merge the PR → pipeline runs `terraform apply`.
+
+**Bicep workflow:**
+
+1. Delete the local `lib/` directory that contains the generated ALZ library files.
+2. Run the `alzlib` tool to regenerate from the latest library version: `alzlib generate`.
+3. Run the `Update-ALZReferences.ps1` script to align your parameter files.
+4. Open a PR — the pipeline runs `what-if` to show changes.
+5. Merge → pipeline deploys via Deployment Stacks (which automatically clean up deprecated policy assignments).
+
+> 🎥 **From the ALZ Weekly Questions** — [How to Stay Current with ALZ Azure Policies](https://www.youtube.com/watch?v=ddcVKS_MKkk)
+> Deployment Stacks give Bicep a major advantage here: when a policy is removed from the ALZ library, the stack automatically deletes the orphaned assignment. Terraform achieves the same via state tracking, but Bicep teams historically had to clean up manually.
+
+### EPAC as an alternative policy management tool
+
+**EPAC (Enterprise Policy as Code)** is a community‑driven tool that provides a structured way to manage Azure Policy assignments at scale, especially across **multi‑tenant** environments. It uses a declarative JSON/CSV format and supports complex policy ecosystems with hundreds of assignments.
+
+**When EPAC makes sense:**
+
+* Large multi‑tenant estates where the ALZ‑native policy management feels limiting.
+* Organisations that want a single policy repository covering multiple ALZ instances.
+* Teams that need advanced features like policy exemption management, effect overrides, and compliance reporting.
+
+**The risks:**
+
+* EPAC is **community‑driven** — it has no Microsoft product lifecycle, no SLA, and no guaranteed long‑term support.
+* If the maintainers step away, you own the codebase. Only adopt EPAC if your team has the skills and willingness to **fork and maintain** it independently.
+* EPAC has its own sequencing requirements that can conflict with how ALZ deploys policies. Integration requires careful planning.
+
+**If you don't use EPAC**, you can disable ALZ‑native policy assignments and manage policies entirely through your own definitions:
+
+* **Bicep:** set the policy module references to `null` or `no` in the configuration.
+* **Terraform:** use an **empty archetype** that deploys management groups without any policy assignments.
+
+> 🎥 **From the ALZ Weekly Questions** — [Using EPAC for Azure Policy in ALZ](https://www.youtube.com/watch?v=x1I_XhC6GtA)
+> EPAC is a power tool — powerful in expert hands, dangerous if adopted without deep understanding. The ALZ team's position: if you don't understand EPAC well enough to fork it, you probably shouldn't depend on it.
 
 ### The custom → built‑in lifecycle
 
