@@ -20,7 +20,17 @@ resources, and the one used by the legacy migration team. Microsoft's
 list** finally gave the industry a shared vocabulary, and reusable
 **naming modules** (the `Azure/naming` Terraform module, the
 `nianton/azure-naming` Bicep module) made the convention executable
-rather than aspirational. Tagging followed a similar arc: a brief flirtation
+rather than aspirational.
+
+> 📘 **Key terms**
+>
+> **CAF (Cloud Adoption Framework)** — Microsoft's comprehensive guidance for cloud strategy, governance, and implementation. Its naming and tagging recommendations are the de facto standard for Azure estates.
+> **Resource abbreviations** — a CAF‑published list of short prefixes for each Azure resource type (e.g. `rg-` for resource groups, `st` for storage accounts, `kv-` for key vaults).
+> **Modify effect** — an Azure Policy effect that automatically adds or corrects properties on resources (e.g. appending a tag inherited from the resource group) without denying the deployment.
+> **Canonical values** — a fixed, enumerated set of allowed values for a tag or naming segment (e.g. `env` ∈ {`prod`, `nonprod`, `sandbox`}), enforced by policy to prevent free‑text inconsistency.
+> **Data classification** — a tagging practice that labels resources by sensitivity level (e.g. `Public`, `Internal`, `Confidential`, `Restricted`) to drive security automation and access control.
+
+Tagging followed a similar arc: a brief flirtation
 with "free‑text whatever the engineer felt like" gave way to **Azure
 Policy `modify` effects** that auto‑append RG tags, and to mandatory tag
 sets enforced by `deny`. The boring takeaway: **what isn't enforced by
@@ -228,11 +238,11 @@ flowchart TB
     LZ --> LZCorp
     LZ --> LZOnline
 
-    classDef root  fill:#f5f5f5,stroke:#666,stroke-width:2px
-    classDef inter fill:#e8f4fd,stroke:#2980b9
-    classDef plat  fill:#cdeffd,stroke:#2980b9
-    classDef lz    fill:#d4efdf,stroke:#27ae60
-    classDef misc  fill:#f9ebea,stroke:#922b21
+    classDef root  fill:#f5f5f5,stroke:#666,stroke-width:2px,color:#1a1a1a
+    classDef inter fill:#e8f4fd,stroke:#2980b9,color:#1a1a1a
+    classDef plat  fill:#cdeffd,stroke:#2980b9,color:#1a1a1a
+    classDef lz    fill:#d4efdf,stroke:#27ae60,color:#1a1a1a
+    classDef misc  fill:#f9ebea,stroke:#922b21,color:#1a1a1a
     class Root,ALZ root
     class Plat,PConn,PIdent,PMgmt plat
     class LZ,LZCorp,LZOnline lz

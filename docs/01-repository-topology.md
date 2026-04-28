@@ -23,6 +23,16 @@ benefits of monorepos backed by purpose‑built tooling (Bazel, Buck,
 Source Depot). For IaC specifically, the Terraform community discovered
 that **Git submodules don't fix the problem** and that **module registries
 do** (Terraform Registry, then private registries, then OCI). Today most
+
+> 📘 **Key terms**
+>
+> **ALZ (Azure Landing Zone)** — a pre‑configured Azure environment (management groups, subscriptions, policies, networking) that follows Microsoft's Cloud Adoption Framework and is ready to host workloads securely at scale.
+> **IaC (Infrastructure as Code)** — the practice of defining cloud infrastructure in declarative or imperative code files (Terraform, Bicep, Pulumi) rather than manual portal clicks, enabling version control, review, and automation.
+> **SVN (Subversion)** — a centralised version‑control system that predated Git's dominance.
+> **Cargo‑culting** — blindly copying a practice from another context without understanding why it worked there.
+> **Git submodules** — a Git feature that embeds one repository inside another; notoriously difficult to manage and a common source of checkout confusion.
+> **Module registries** — hosted catalogues (e.g. Terraform Registry, Azure Container Registry) that distribute versioned IaC modules, replacing error‑prone Git‑source references.
+> **OCI (Open Container Initiative)** — a standard for container image formats and registries, increasingly used to distribute non‑container artefacts such as IaC modules.
 mature ALZ implementations live in a *small number* of carefully chosen
 repos — neither a single behemoth nor an unmanageable swarm — and that's
 the option this chapter recommends.
@@ -61,10 +71,10 @@ flowchart TB
     L0 -. consumed by .-> L2
     L0 -. consumed by .-> L3
 
-    classDef foundation fill:#fde2e4,stroke:#c0392b
-    classDef platform   fill:#cdeffd,stroke:#2980b9
-    classDef lz         fill:#d4efdf,stroke:#27ae60
-    classDef modules    fill:#fcf3cf,stroke:#b7950b
+    classDef foundation fill:#fde2e4,stroke:#c0392b,color:#1a1a1a
+    classDef platform   fill:#cdeffd,stroke:#2980b9,color:#1a1a1a
+    classDef lz         fill:#d4efdf,stroke:#27ae60,color:#1a1a1a
+    classDef modules    fill:#fcf3cf,stroke:#b7950b,color:#1a1a1a
     class L1 foundation
     class L2 platform
     class L3 lz
@@ -104,9 +114,15 @@ alz/
 * **One pipeline framework** to maintain.
 
 ### ❌ Cons
+> 📘 **CODEOWNERS** — a file (`.github/CODEOWNERS`) that maps file‑path patterns to GitHub teams or users who must approve PRs touching those paths. Only enforced when branch protection requires CODEOWNERS review.
+
 * **Permissions are coarse.** GitHub repo roles apply to the whole repo;
   fine‑grained access requires CODEOWNERS + branch protection gymnastics.
+> 📘 **Blast radius** — the scope of damage a single failure can cause. In IaC, this is typically defined by what resources a single `terraform apply` or deployment stack can touch. Smaller blast radius means a mistake affects fewer resources.
+
 * **Pipeline scaling.** A naive workflow that runs `terraform plan` on the
+> 📘 **Path filters & matrix builds** — path filters trigger a pipeline only when files in specific directories change, avoiding unnecessary runs. Matrix builds run multiple jobs in parallel (e.g. one per environment or workload), allowing a single workflow to plan/apply many targets concurrently.
+
   whole repo on every PR becomes unusable past ~50 workloads. You **must**
   invest in path filters and matrix builds early.
 * **Blast radius psychology.** Engineers see the foundation code next to their

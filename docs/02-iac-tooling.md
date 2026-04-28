@@ -48,7 +48,8 @@ confidently at 2 a.m.
 
 ### Bicep
 
-Microsoft's first‑party DSL that transpiles to ARM JSON.
+Microsoft's first‑party DSL (domain‑specific language) that transpiles
+(compiles from one high‑level language to another) to ARM JSON.
 
 **Strengths**
 * Native Azure — every resource and API version is available *day one*.
@@ -61,8 +62,8 @@ Microsoft's first‑party DSL that transpiles to ARM JSON.
 
 **Weaknesses**
 * Azure‑only. Useless for AWS/GCP, third‑party SaaS, GitHub, Datadog, etc.
-* Looping/conditionals are less expressive than HCL or general‑purpose
-  languages.
+* Looping/conditionals are less expressive than HCL (HashiCorp Configuration
+  Language) or general‑purpose languages.
 * Smaller community ecosystem of modules (though AVM closes the gap).
 * `what-if` is powerful but has rough edges with complex resources
   (RBAC role assignments, child resources). Validate empirically.
@@ -87,6 +88,8 @@ The de‑facto multi‑cloud standard.
 * AzureRM provider sometimes lags new Azure features (mitigated by AzAPI).
 * OpenTofu fork (post‑BSL licence change) is now production‑viable; choosing
   between Terraform and OpenTofu is a fresh decision in 2026.
+
+> 📘 **BSL (Business Source Licence)** — in August 2023 HashiCorp relicensed Terraform from the permissive MPL 2.0 to the BSL 1.1, which restricts competitive commercial use. **OpenTofu** is the community fork that continues under the original open‑source licence.
 
 ### ARM (JSON)
 

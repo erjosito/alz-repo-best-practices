@@ -23,7 +23,19 @@ coined the term in 2017; Flux and ArgoCD popularised it) reframed the
 question: environments are *folders containing manifests*, not branches
 *containing code*. Combined with **trunk‑based development** practices
 proven at high‑scale shops, "one branch, folder per environment" became
-the dominant pattern by the early 2020s. The branch‑per‑environment model
+the dominant pattern by the early 2020s.
+
+> 📘 **Key terms**
+>
+> **GitFlow** — a branching model with parallel long‑lived branches (`main`, `develop`, `release/*`, `hotfix/*`). Powerful for versioned software releases, but error‑prone for infrastructure where every branch must converge.
+> **Trunk‑based development** — a model where all developers commit to a single long‑lived branch (`main`/`trunk`) via short‑lived feature branches, keeping integration continuous and merge conflicts small.
+> **GitOps** — an operational pattern where the desired state of infrastructure is declared in Git and a reconciler (Flux, ArgoCD) or CI/CD pipeline continuously applies it, making Git the single source of truth.
+> **Cherry‑picking** — a Git operation that copies a single commit from one branch to another. Useful for targeted hotfixes, but dangerous at scale because forgetting to cherry‑pick even once creates silent environment drift.
+> **Drift** — the divergence between what your IaC code declares and what actually exists in the cloud. Drift can be caused by manual portal changes, failed applies, or cherry‑pick misses between branches.
+> **Feature flags** — conditional toggles (often a boolean variable) that let code exist in `main` without being active in all environments, allowing incomplete features to be merged safely.
+> **Ephemeral environments** — short‑lived, disposable environments (e.g. per‑PR) spun up for testing and torn down automatically when no longer needed.
+
+The branch‑per‑environment model
 still survives in regulated industries that map approval to branches —
 usually because the auditors learned Git from a 2015 tutorial. Whichever
 history your team carries, the two questions below cut through the legacy.
@@ -56,9 +68,9 @@ flowchart LR
     Gate -->|approved| Prod["apply → prod"]
     Gate -.->|rejected| Revert["revert PR<br/>to roll back"]
 
-    classDef env fill:#cdeffd,stroke:#2980b9
-    classDef gate fill:#fcf3cf,stroke:#b7950b
-    classDef bad fill:#f9ebea,stroke:#922b21
+    classDef env fill:#cdeffd,stroke:#2980b9,color:#1a1a1a
+    classDef gate fill:#fcf3cf,stroke:#b7950b,color:#1a1a1a
+    classDef bad fill:#f9ebea,stroke:#922b21,color:#1a1a1a
     class NP,Prod,Soak env
     class Plan,Gate gate
     class Revert bad

@@ -41,9 +41,9 @@ flowchart TB
     T3 -->|composes| T2
     T2 -->|wraps + opinionates| T1
 
-    classDef t1 fill:#fcf3cf,stroke:#b7950b
-    classDef t2 fill:#cdeffd,stroke:#2980b9
-    classDef t3 fill:#d4efdf,stroke:#27ae60
+    classDef t1 fill:#fcf3cf,stroke:#b7950b,color:#1a1a1a
+    classDef t2 fill:#cdeffd,stroke:#2980b9,color:#1a1a1a
+    classDef t3 fill:#d4efdf,stroke:#27ae60,color:#1a1a1a
     class T1 t1
     class T2 t2
     class T3 t3
@@ -76,7 +76,16 @@ Azure resources.
 * Predictable inputs/outputs across resources.
 * Diagnostic settings, customer‑managed keys, RBAC, private endpoints — all
   parameterised consistently.
-* Versioned in MCR (Bicep) / Terraform Registry.
+* Versioned in MCR (Microsoft Container Registry, for Bicep) / Terraform Registry.
+
+> 📘 **Key terms**
+>
+> **SemVer (Semantic Versioning)** — a versioning scheme (`MAJOR.MINOR.PATCH`) where each component signals the type of change: major = breaking, minor = new features, patch = bug fixes.
+> **Conventional Commits** — a commit‑message convention (e.g. `feat:`, `fix:`, `chore:`) that enables tools like `release-please` to automate changelog generation and version bumping.
+> **MCR (Microsoft Container Registry)** — Microsoft's public OCI registry (`mcr.microsoft.com`) used to distribute container images and Bicep modules.
+> **OCI (Open Container Initiative)** — an industry standard for container image formats and distribution; registries that speak OCI can also host IaC modules.
+> **DRY (Don't Repeat Yourself)** — a software principle: every piece of knowledge should have a single, authoritative representation in the codebase.
+> **WAF (Well-Architected Framework)** — Microsoft's set of design principles for building reliable, secure, cost‑efficient and performant Azure workloads.
 
 **Don't** use AVM *pattern* modules in production without wrapping them. They
 are reference implementations — useful as scaffolding, not as your enterprise

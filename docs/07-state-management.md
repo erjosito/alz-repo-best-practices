@@ -31,6 +31,15 @@ removing this line do?" Microsoft's answer was **Deployment Stacks**
 (GA 2024), which give you Terraform‑style guarantees with no state file
 to operate. The chapter covers both worlds.
 
+> 📘 **Key terms**
+>
+> **Remote backend** — a shared, network‑accessible location (e.g. Azure Blob Storage) where Terraform stores state, enabling locking and team collaboration.
+> **Blob lease** — an Azure Storage locking mechanism that Terraform's `azurerm` backend uses to prevent two concurrent `apply` operations against the same state file.
+> **State surgery** — manually editing Terraform state (via `terraform state mv`, `rm`, or `import`) to fix drift between state and reality without recreating resources.
+> **`force-unlock`** — a Terraform command that manually releases a stuck state lock, typically needed after a runner crash during `apply`.
+> **`denySettings`** — a Deployment Stacks property that prevents out‑of‑band changes to managed resources (e.g. `denyDelete` blocks manual deletions).
+> **`actionOnUnmanage`** — a Deployment Stacks property that controls what happens to resources removed from the template: `deleteAll`, `detachAll`, or per‑type settings.
+
 Understanding why state management matters operationally is best approached by considering how badly it can go wrong.
 
 ## Why this is not a footnote
@@ -164,9 +173,9 @@ flowchart TB
     P1 -. data ref .-> L1 & L3
     P3 -. data ref .-> L1 & L2 & L3 & L4
 
-    classDef found fill:#fde2e4,stroke:#c0392b
-    classDef plat  fill:#cdeffd,stroke:#2980b9
-    classDef lz    fill:#d4efdf,stroke:#27ae60
+    classDef found fill:#fde2e4,stroke:#c0392b,color:#1a1a1a
+    classDef plat  fill:#cdeffd,stroke:#2980b9,color:#1a1a1a
+    classDef lz    fill:#d4efdf,stroke:#27ae60,color:#1a1a1a
     class F found
     class P1,P2,P3,P4 plat
     class L1,L2,L3,L4,L5 lz

@@ -24,7 +24,18 @@ GitHub announced **OIDC for Actions** in 2021, Entra added support for
 **workload federated credentials** the same year, and the entire problem
 class evaporated almost overnight: the runner asks GitHub for a
 short‑lived signed JWT, exchanges it with Entra, and gets a 1‑hour
-access token. No secret ever exists. By 2024 federated credentials had
+access token. No secret ever exists.
+
+> 📘 **Key terms**
+>
+> **SPN (Service Principal)** — an identity object in Microsoft Entra ID that represents an application or service, used to authenticate non‑human workloads to Azure.
+> **MI (Managed Identity)** — an Azure‑managed identity attached to a resource (VM, App Service, AKS pod) that obtains tokens automatically without storing any secret. Comes in *system‑assigned* (tied to one resource) and *user‑assigned* (reusable across resources) variants.
+> **OIDC (OpenID Connect)** — an identity layer built on OAuth 2.0 that lets one system prove its identity to another via signed tokens, without exchanging long‑lived secrets.
+> **JWT (JSON Web Token)** — a compact, signed token format used to carry identity claims (e.g. "this request comes from repo X, branch main, environment prod").
+> **Entra ID** — Microsoft's cloud identity platform (formerly Azure Active Directory / AAD). Manages users, groups, SPNs, and federated credentials.
+> **PIM (Privileged Identity Management)** — an Entra ID feature that provides just‑in‑time, time‑limited elevation to privileged roles, requiring approval and MFA.
+> **SIEM (Security Information and Event Management)** — a platform (e.g. Microsoft Sentinel) that aggregates logs from across your estate for threat detection and incident response.
+> **Conditional Access** — Entra ID policies that enforce requirements (MFA, compliant device, location) before granting access to resources.By 2024 federated credentials had
 spread to **user‑assigned managed identities** as well, and Azure DevOps
 shipped its own equivalent. There is now no defensible reason to store an
 Azure secret in a CI system — and yet, the surveys keep showing that most

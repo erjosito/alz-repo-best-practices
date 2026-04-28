@@ -29,6 +29,15 @@ and **Excalidraw** gave teams text‑based architecture diagrams; and
 IaC repo's docs/ folder is a small, disciplined library — not a
 dumping ground.
 
+> 📘 **Key terms**
+>
+> **ADR (Architecture Decision Record)** — a short, immutable document capturing a single architectural decision: the context, the decision itself, and the consequences. Stored in `docs/adr/` and numbered sequentially.
+> **Diátaxis** — a documentation framework by Daniele Procida that classifies all technical content into exactly four types (tutorials, how‑to guides, reference, explanation), arguing that mixing types in one document is the most common documentation failure.
+> **Mermaid** — a text‑based diagramming language rendered natively by GitHub in markdown code blocks (` ```mermaid `). Supports flowcharts, sequence diagrams, state diagrams, and more.
+> **D2** — a modern, text‑based diagram scripting language designed for software architecture diagrams, with auto‑layout and theming.
+> **Excalidraw** — a virtual whiteboard tool that produces hand‑drawn‑style diagrams, storable as JSON and embeddable in repos.
+> **PSDocs** — a PowerShell‑based documentation generator that produces markdown from Azure resource templates, analogous to `terraform-docs` for Bicep/ARM.
+
 Not every piece of content that belongs in that library is the same kind of thing — and treating them as interchangeable is the first step towards a docs folder nobody trusts. The Diátaxis framework provides a useful taxonomy.
 
 ## The four kinds of documentation
@@ -37,15 +46,28 @@ Inspired by the [Diátaxis framework](https://diataxis.fr/) — every piece of
 documentation should be exactly one of:
 
 ```mermaid
-quadrantChart
-    title Diátaxis — what kind of doc is this?
-    x-axis "<b>Practical steps</b>" --> "<b>Theoretical understanding</b>"
-    y-axis "<b>Studying (acquiring skill)</b>" --> "<b>Working (applying skill)</b>"
-    quadrant-1 "How-to guides<br/>'Achieve a goal'<br/>docs/runbooks/"
-    quadrant-2 "Explanation<br/>'Understand why'<br/>docs/adr/"
-    quadrant-3 "Tutorials<br/>'Learn by doing'<br/>docs/tutorials/"
-    quadrant-4 "Reference<br/>'Look it up'<br/>auto-generated"
+flowchart TB
+    subgraph Working["<b>Working — applying skill</b>"]
+        HowTo["<b>How-to guides</b><br/>'Achieve a goal'<br/><i>docs/runbooks/</i>"]
+        Ref["<b>Reference</b><br/>'Look it up'<br/><i>auto-generated</i>"]
+    end
+    subgraph Studying["<b>Studying — acquiring skill</b>"]
+        Tut["<b>Tutorials</b><br/>'Learn by doing'<br/><i>docs/tutorials/</i>"]
+        Expl["<b>Explanation</b><br/>'Understand why'<br/><i>docs/adr/</i>"]
+    end
+
+    HowTo -.- Ref
+    Tut -.- Expl
+    HowTo -.- Tut
+    Ref -.- Expl
+
+    classDef practical fill:#cdeffd,stroke:#2980b9,color:#1a1a1a
+    classDef theory fill:#fcf3cf,stroke:#b7950b,color:#1a1a1a
+    class HowTo,Tut practical
+    class Ref,Expl theory
 ```
+
+*Left column = practical steps · Right column = theoretical understanding*
 
 | Type | Purpose | Where in the repo |
 |------|---------|-------------------|

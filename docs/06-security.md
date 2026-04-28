@@ -155,6 +155,17 @@ Less mature than for application code, but worth doing:
 * Store SBOMs as build artifacts; ingest into your SCA tool (GHAS,
   Snyk, etc.).
 
+> 📘 **Key terms**
+>
+> **SBOM (Software Bill of Materials)** — a machine‑readable inventory of every component (modules, providers, Actions) your pipeline depends on, used to track known vulnerabilities.
+> **SCA (Software Composition Analysis)** — tooling that scans your dependency tree for known CVEs and licence risks.
+> **GHAS (GitHub Advanced Security)** — GitHub's security suite including code scanning (CodeQL), secret scanning, Dependabot, and dependency review.
+> **SLSA (Supply‑chain Levels for Software Artifacts)** — a framework (pronounced "salsa") that defines increasingly strict levels of build integrity, from source to artefact.
+> **Sigstore** — an open‑source project providing keyless code‑signing and verification, removing the burden of managing GPG/PGP keys.
+> **GPG (GNU Privacy Guard)** — a traditional public‑key cryptography tool used to sign Git commits and verify author identity.
+> **CMK (Customer‑Managed Key)** — an encryption key you own and manage in Azure Key Vault, used instead of Microsoft‑managed keys for data‑at‑rest encryption.
+> **`pull_request_target`** — a GitHub Actions trigger that runs with the *base* branch's secrets and permissions even when a fork opens a PR. If the workflow checks out and executes fork code, it creates a privilege escalation path.
+
 ### Provenance / SLSA
 
 Use [GitHub's artifact attestations](https://docs.github.com/actions/security-guides/using-artifact-attestations-to-establish-provenance-for-builds)

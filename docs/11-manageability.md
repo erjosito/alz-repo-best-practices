@@ -28,6 +28,17 @@ Day‑2 ops in 2026 is no longer a heroic firefighting practice — done
 right, it's mostly Renovate PRs, drift dashboards, and the occasional
 runbook. This chapter shows the building blocks.
 
+> 📘 **Key terms**
+>
+> **Drift detection** — the practice of periodically running `terraform plan` (or `az stack show`) and alerting when the actual cloud state diverges from what the code declares.
+> **driftctl** — an open‑source tool (now archived) that scanned AWS/Azure resources and compared them against Terraform state to find unmanaged or drifted resources.
+> **KQL (Kusto Query Language)** — the query language used by Azure Resource Graph, Log Analytics, and Microsoft Sentinel for querying structured data.
+> **DORA metrics** — four key metrics from the DevOps Research and Assessment programme: deployment frequency, lead time for changes, change failure rate, and time to restore service. Used to benchmark engineering performance.
+> **Subscription vending** — the automated process of creating and configuring a new Azure subscription (with budget, policies, RBAC, and networking) so it's ready for a workload team to use.
+> **EA / MCA** — Enterprise Agreement / Microsoft Customer Agreement — the two main Azure billing models through which subscriptions are created programmatically.
+> **Zombie subscriptions** — subscriptions that are no longer actively used or maintained but remain billable and potentially insecure because no decommission process was followed.
+> **Bus factor** — the number of team members who would need to be unavailable before the project stalls. A bus factor of 1 means a single person's absence can halt operations.
+
 ## CODEOWNERS — your first line of governance
 
 `CODEOWNERS` enforces *who must approve* a PR for any given path. In a
