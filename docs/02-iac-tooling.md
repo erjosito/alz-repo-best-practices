@@ -146,17 +146,87 @@ IaC in real programming languages (TypeScript, Python, Go, C#).
 
 ### ALZ accelerators
 
-These aren't an engine choice — they're a *starting point*:
+These aren't an engine choice — they're a *starting point* that
+bootstraps a production‑grade CI/CD pipeline, state storage, identities,
+and an opinionated folder structure so you don't start from a blank
+repo. Understanding what each accelerator does — and what it *doesn't*
+do — is critical, because the accelerator's output becomes the codebase
+you will maintain for years.
 
-* **ALZ Bicep** (`Azure/ALZ-Bicep`) — modular Bicep implementation.
-* **ALZ Terraform module** (`Azure/terraform-azurerm-caf-enterprise-scale`,
-  also known as CAF/ESLZ Terraform) — opinionated, batteries‑included.
-* **ALZ Portal accelerator** — click‑through deploy; good for demos, not for
-  production GitOps.
-* **ALZ PowerShell module** — bootstraps an end‑to‑end deployment from a
-  questionnaire.
+> 📘 **Key terms**
+>
+> **ALZ accelerator** — an automation package that provisions the
+> scaffolding (repos, pipelines, identities, state storage) needed to
+> deploy an Azure Landing Zone via IaC. The accelerator is a *bootstrap*;
+> the AVM modules it references are the *implementation*.
+>
+> **Bootstrap phase** — the one‑time setup that creates the version
+> control repo, CI/CD pipelines, managed identities (with federated
+> credentials for OIDC), and Terraform state storage accounts. All
+> accelerators use a PowerShell module (`ALZ-PowerShell-Module`) for
+> this step, regardless of whether the resulting IaC is Bicep or
+> Terraform.
 
-You should **fork or wrap** an accelerator, not consume it raw — see
+#### ALZ Bicep accelerator (AVM‑based)
+
+Replaces the classic `Azure/ALZ-Bicep` repo (entering extended support;
+archived February 2027).
+
+| Aspect | Detail |
+|--------|--------|
+| **Input** | Interactive questionnaire via ALZ PowerShell module: target management‑group hierarchy, connectivity model (hub‑spoke or vWAN), regions, policy defaults, VCS choice (GitHub / Azure DevOps). |
+| **Bootstrap** | Terraform provisions: a Git repo, CI/CD pipelines (GitHub Actions or ADO Pipelines), managed identities with OIDC federation, and storage accounts for Deployment Stack parameters. |
+| **Output** | A ready‑to‑run repo containing AVM Bicep pattern modules (≈16 resource + 3 pattern modules), YAML‑driven configuration for management groups, policies, and connectivity, plus pipeline definitions that deploy via Deployment Stacks. |
+| **Day‑2 workflow** | Edit YAML config or Bicep parameters → PR → pipeline runs `what-if` → merge → pipeline deploys via `az stack sub create`. |
+
+#### ALZ Terraform accelerator (AVM‑based)
+
+Replaces the classic `Azure/terraform-azurerm-caf-enterprise-scale`
+module (entering extended support; archived August 2026).
+
+| Aspect | Detail |
+|--------|--------|
+| **Input** | Same PowerShell questionnaire: hierarchy, connectivity model, regions, VCS. Additionally: backend choice (azurerm storage), Terraform/OpenTofu version preference. |
+| **Bootstrap** | Terraform provisions: a Git repo, CI/CD pipelines, managed identities with OIDC, a storage account for state, and a starter Terraform root module consuming AVM modules. |
+| **Output** | A repo with a root module referencing AVM Terraform resource and pattern modules, `.tfvars` per environment, and pipeline definitions that run `terraform plan` on PR and `terraform apply` on merge. |
+| **Day‑2 workflow** | Edit `.tf` / `.tfvars` → PR → pipeline runs `plan` + policy checks → merge → pipeline runs `apply`. |
+
+#### ALZ Portal accelerator
+
+| Aspect | Detail |
+|--------|--------|
+| **Input** | Browser‑based wizard at [aka.ms/alz/portal](https://aka.ms/alz/portal): click‑through selections for management groups, policies, connectivity, and identity. |
+| **Bootstrap** | ARM deployment directly from the portal — no local tooling required. |
+| **Output** | Deployed Azure resources (management groups, policies, hub network) in your tenant. **No repo, no pipeline, no IaC artifacts.** |
+| **Day‑2 workflow** | None — portal‑deployed resources are not under source control. |
+
+The portal accelerator is useful for **demos, proof‑of‑concept, and
+learning** the ALZ architecture. It is **not suitable for production
+GitOps** because there is no IaC to review, version, or roll back. If
+you start here, plan to re‑deploy via Bicep or Terraform before
+going live.
+
+#### ALZ PowerShell module
+
+The PowerShell module (`Azure/ALZ-PowerShell-Module`) is not a
+standalone accelerator — it is the **bootstrap engine** used by both the
+Bicep and Terraform accelerators. It collects configuration via an
+interactive questionnaire, then invokes Terraform to provision the VCS
+repo, pipelines, identities, and state storage. You can also run it
+non‑interactively with a parameter file for repeatable bootstraps.
+
+#### What all accelerators share
+
+* **Opinionated defaults aligned to CAF** — management‑group hierarchy,
+  default policy assignments, hub network topology.
+* **AVM modules under the hood** — the accelerators don't invent their
+  own resource definitions; they compose AVM resource and pattern modules.
+* **You own the output.** The accelerator is a one‑time scaffold. Once
+  the repo exists, you maintain it — updating AVM module versions,
+  customising policies, adding landing zones. The accelerator doesn't
+  "phone home" or auto‑update.
+
+You should **fork or wrap** the accelerator output, not consume it raw — see
 [03 modules & registries](03-modules-and-registries.md).
 
 With all the options on the table, the practical question is which combination actually fits your team and organisation.
@@ -329,9 +399,13 @@ With the toolchain chosen, the estate has a shape (Chapter 01) and a language (t
 * Hashicorp, *AzAPI provider*:
   <https://registry.terraform.io/providers/Azure/azapi/latest/docs>
 * Azure, *Verified Modules*: <https://aka.ms/avm>
-* Azure, *ALZ‑Bicep*: <https://github.com/Azure/ALZ-Bicep>
-* Azure, *Terraform CAF/ESLZ module*:
+* Azure, *ALZ‑Bicep (Classic — entering extended support)*: <https://github.com/Azure/ALZ-Bicep>
+* Azure, *ALZ Terraform (Classic — entering extended support)*:
   <https://github.com/Azure/terraform-azurerm-caf-enterprise-scale>
+* Azure, *ALZ accelerator (AVM‑based, current)*:
+  <https://azure.github.io/Azure-Landing-Zones/accelerator/>
+* Azure, *ALZ Terraform migration guide*:
+  <https://aka.ms/alz/tf/migrate>
 * OpenTofu: <https://opentofu.org/>
 
 ---

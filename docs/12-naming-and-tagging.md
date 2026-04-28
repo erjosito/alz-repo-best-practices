@@ -166,7 +166,11 @@ resource "azurerm_storage_account" "logs" {
 }
 ```
 
-Or for Bicep, the [Azure naming Bicep module](https://github.com/nianton/azure-naming).
+Or for Bicep, the [Azure naming Bicep module](https://github.com/nianton/azure-naming)
+(note: this community module has not been actively maintained since 2023;
+consider Bicep user‑defined functions or the
+[Azure Naming Tool](https://github.com/mspnp/AzureNamingTool) as
+alternatives).
 Either way, **never let humans type the name into a parameter file** —
 typos become permanent.
 
@@ -365,8 +369,10 @@ Naming and tagging may feel like administrative overhead until the day someone a
   <https://learn.microsoft.com/azure/azure-resource-manager/management/resource-name-rules>
 * `Azure/naming` Terraform module:
   <https://registry.terraform.io/modules/Azure/naming/azurerm/latest>
-* `nianton/azure-naming` Bicep module:
+* `nianton/azure-naming` Bicep module *(inactive since 2023)*:
   <https://github.com/nianton/azure-naming>
+* Azure Naming Tool (actively maintained alternative):
+  <https://github.com/mspnp/AzureNamingTool>
 
 ---
 

@@ -42,8 +42,10 @@ A consolidated list of the external references cited across this guide.
 
 ## ALZ accelerators
 
-* ALZ-Bicep — <https://github.com/Azure/ALZ-Bicep>
-* Terraform CAF/ESLZ module — <https://github.com/Azure/terraform-azurerm-caf-enterprise-scale>
+* ALZ-Bicep (Classic — entering extended support) — <https://github.com/Azure/ALZ-Bicep>
+* Terraform CAF/ESLZ module (Classic — entering extended support, archived Aug 2026) — <https://github.com/Azure/terraform-azurerm-caf-enterprise-scale>
+* ALZ accelerator (AVM‑based, current) — <https://azure.github.io/Azure-Landing-Zones/accelerator/>
+* ALZ Terraform migration guide — <https://aka.ms/alz/tf/migrate>
 * ALZ PowerShell module — <https://github.com/Azure/ALZ-PowerShell-Module>
 * ALZ Portal accelerator — <https://aka.ms/alz/portal>
 
