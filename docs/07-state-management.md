@@ -44,6 +44,8 @@ to operate. The chapter covers both worlds.
 > **`denySettings`** — a Deployment Stacks property that prevents out‑of‑band changes to managed resources (e.g. `denyDelete` blocks manual deletions).
 >
 > **`actionOnUnmanage`** — a Deployment Stacks property that controls what happens to resources removed from the template: `deleteAll`, `detachAll`, or per‑type settings.
+>
+> **Azure Blueprints** — a now‑deprecated Azure governance service (sunset July 2026) that bundled ARM templates, policy assignments, role assignments, and resource groups into a versioned, assignable package. Superseded by Deployment Stacks.
 
 Understanding why state management matters operationally is best approached by considering how badly it can go wrong.
 
@@ -310,6 +312,41 @@ Tradeoff vs raw `az deployment`: stacks are slower to create but vastly
 safer for production. For ephemeral PR environments, raw deployments are
 fine; for prod, stacks.
 
+### Deployment Stacks vs Azure Blueprints (deprecated)
+
+Teams migrating from **Azure Blueprints** (deprecated July 2026) will
+recognise the ambition: both aim to deploy a *set* of resources as a
+governed unit with lifecycle tracking and policy enforcement. The
+execution is very different.
+
+| Capability | Azure Blueprints | Deployment Stacks |
+|------------|-----------------|-------------------|
+| **Status** | Deprecated (July 2026) | GA (2024) |
+| **Scope** | Management group or subscription | Management group, subscription, or resource group |
+| **Template language** | ARM JSON only | Bicep or ARM JSON |
+| **Versioning** | Built‑in (draft → published → assigned) | External — you version the template in Git; the stack always applies the latest |
+| **Drift protection** | Resource locks applied per‑artefact | `denySettings` at the ARM layer — more granular, supports excluded principals and actions |
+| **Unmanage behaviour** | Resources orphaned on blueprint deletion | Configurable via `actionOnUnmanage`: delete, detach, or per‑type |
+| **Policy / role bundling** | Blueprints could assign policies and roles as artefacts | Stacks deploy whatever the template contains — policies and roles are just resources |
+| **Sequencing** | Built‑in artefact sequencing | Template‑level `dependsOn` (standard ARM/Bicep) |
+| **What-if / plan** | No | `az stack … --what-if` (preview) |
+| **State storage** | Azure‑managed (opaque) | Azure‑managed (opaque) — same model, better transparency |
+
+**What Blueprints got right:** the idea that a landing zone is a *governed
+package* — not just resources but also policies, roles, and locks deployed
+as a single unit with lifecycle tracking. That concept survives in Stacks.
+
+**What Blueprints got wrong:** coupling to ARM JSON, an opaque versioning
+system disconnected from Git, no real plan/what‑if, and insufficient
+adoption to justify continued investment.
+
+**Migration path:** replace each Blueprint assignment with a Deployment
+Stack whose Bicep template reproduces the same resources, policy
+assignments, and role assignments. The `denySettings` property replaces
+Blueprint locks, and Git versioning replaces the built‑in draft/published
+workflow. Microsoft provides a
+[migration guide](https://learn.microsoft.com/azure/governance/blueprints/concepts/deployment-stacks-migration).
+
 ---
 
 ## Drift detection
@@ -357,6 +394,10 @@ State — or its Bicep equivalent — is the operational ledger for your entire 
   <https://developer.hashicorp.com/terraform/language/state>
 * Microsoft, *Deployment stacks*:
   <https://learn.microsoft.com/azure/azure-resource-manager/bicep/deployment-stacks>
+* Microsoft, *Migrate from Blueprints to Deployment Stacks*:
+  <https://learn.microsoft.com/azure/governance/blueprints/concepts/deployment-stacks-migration>
+* Microsoft, *Azure Blueprints deprecation*:
+  <https://learn.microsoft.com/azure/governance/blueprints/overview>
 * Microsoft, *Storage account security baseline*:
   <https://learn.microsoft.com/security/benchmark/azure/baselines/storage-security-baseline>
 * Hashicorp, *`import` blocks*:
