@@ -310,6 +310,44 @@ The two should be **expressed from the same intent**. A common pattern:
 That way, drift between "what we lint" and "what we enforce" is impossible
 by construction.
 
+> ⚖️ **The debate — does PR‑time policy violate "Azure as the single control plane"?**
+>
+> One of the CAF design principles for Azure Landing Zones is to use
+> **Azure as the single platform for operations management and policy**.
+> Adding PSRule, Checkov, or Conftest as a second enforcement layer at
+> PR time creates a tension with that principle: you now have policy
+> logic in *two* places — Azure Policy in the cloud and linting rules
+> in your CI pipeline — with no guarantee they stay in sync.
+>
+> **The case for Azure Policy only:**
+> * One control plane means one place to audit, one place to update,
+>   and one compliance dashboard. No rule drift, no "it passed CI but
+>   Azure Policy denied it" confusion.
+> * Azure Policy's `what-if` and `DoNotEnforce` assignment modes can
+>   surface violations *before* deployment, partially closing the
+>   feedback gap.
+> * Fewer tools to maintain, licence, and train on.
+>
+> **The case for dual‑layer:**
+> * Azure Policy acts *after* deployment (or at deployment time at the
+>   earliest). PR‑time checks catch issues *minutes* into a developer's
+>   workflow, not after a 15‑minute `terraform plan` + `apply` cycle.
+> * Not all controls map cleanly to Azure Policy. Code‑level concerns —
+>   "this module is missing a `description`", "this variable has no
+>   validation block" — are invisible to Azure Policy because they don't
+>   exist as deployed resources.
+> * Azure Policy cannot block a PR from merging. If your governance model
+>   requires that non‑compliant code *never reaches* the main branch,
+>   you need a CI‑side gate.
+>
+> **Where most teams land:** the dual‑layer approach wins in practice,
+> but the "single source of truth" pattern described above is
+> non‑negotiable — without it, rule drift between the two layers
+> erodes trust in both. Teams that skip the generation step and
+> hand‑maintain parallel rule sets in Azure Policy *and* PSRule/Checkov
+> inevitably diverge, and the resulting "it passed CI but was denied
+> at deploy" incidents undermine the entire governance model.
+
 ### Azure Policy lifecycle in this repo
 
 * Policy *definitions* in code (Bicep/Terraform).
