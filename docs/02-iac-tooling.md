@@ -500,6 +500,22 @@ With the toolchain chosen, the estate has a shape (Chapter 01) and a language (t
 * Azure, *ALZ Terraform migration guide*:
   <https://aka.ms/alz/tf/migrate>
 * OpenTofu: <https://opentofu.org/>
+* 🎥 ALZ Weekly — *How to use AVM in ALZ, Bicep or Terraform?*:
+  <https://www.youtube.com/watch?v=ry39tWr_SXc>
+* 🎥 ALZ Weekly — *When to use SLZ over ALZ? + alzlibtool*:
+  <https://www.youtube.com/watch?v=r8h7F6IJIqw>
+* 🎥 ALZ Weekly — *Understanding ALZ Bicep File Structure*:
+  <https://www.youtube.com/watch?v=sPA3YWkQ-4s>
+* 🎥 ALZ Weekly — *Migrating from CAF-Enterprise-Scale to AVM*:
+  <https://www.youtube.com/watch?v=DSBWjQlVpSs>
+* 🎥 ALZ Weekly — *Community ALZ Projects + Right-Sized ALZ*:
+  <https://www.youtube.com/watch?v=MznCQbT-EZw>
+* 🎥 ALZ Weekly — *ALZ for SMB*:
+  <https://www.youtube.com/watch?v=cyLhLJEYIkU>
+* 🎥 ALZ Weekly — *Azure Migrate Agent Preview*:
+  <https://www.youtube.com/watch?v=kFS9lNPuXxM>
+* 🎥 ALZ Weekly — *Azure Migrate Agent Deep Dive*:
+  <https://www.youtube.com/watch?v=ODaFlsja308>
 
 ---
 

@@ -578,6 +578,14 @@ With topology decided and the reference layouts in hand, you have the structural
   <https://developer.hashicorp.com/terraform/cloud-docs/recommended-practices>
 * GitHub, *Monorepo vs polyrepo*:
   <https://github.blog/engineering/architecture-optimization/monorepo-vs-polyrepo/>
+* 🎥 ALZ Weekly — *Subscription Vending: Repo Structure, Security & Multi-Tenant*:
+  <https://www.youtube.com/watch?v=11PmT0t6TUI>
+* 🎥 ALZ Weekly — *Community ALZ Projects + Right-Sized ALZ*:
+  <https://www.youtube.com/watch?v=MznCQbT-EZw>
+* 🎥 ALZ Weekly — *Multi-Region ALZ Expansion*:
+  <https://www.youtube.com/watch?v=nii_LF65zyE>
+* 🎥 ALZ Weekly — *Private DNS Zones: Centralized vs Decentralized*:
+  <https://www.youtube.com/watch?v=WnrKlflIiwo>
 
 ---
 

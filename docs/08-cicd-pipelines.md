@@ -468,6 +468,8 @@ The patterns in this chapter give the pipeline its shape. What that pipeline *va
   <https://learn.microsoft.com/azure/devops/pipelines/process/templates>
 * Hashicorp, *Run Terraform in CI*:
   <https://developer.hashicorp.com/terraform/tutorials/automation/automate-terraform>
+* 🎥 ALZ Weekly — *Subscription Vending: Repo Structure, Security & Multi-Tenant*:
+  <https://www.youtube.com/watch?v=11PmT0t6TUI>
 
 ---
 

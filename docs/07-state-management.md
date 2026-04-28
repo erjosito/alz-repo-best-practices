@@ -525,6 +525,12 @@ State — or its Bicep equivalent — is the operational ledger for your entire 
   <https://learn.microsoft.com/security/benchmark/azure/baselines/storage-security-baseline>
 * Hashicorp, *`import` blocks*:
   <https://developer.hashicorp.com/terraform/language/import>
+* 🎥 ALZ Weekly — *Subscription Vending: Repo Structure, Security & Multi-Tenant*:
+  <https://www.youtube.com/watch?v=11PmT0t6TUI>
+* 🎥 ALZ Weekly — *Migrating from CAF-Enterprise-Scale to AVM*:
+  <https://www.youtube.com/watch?v=DSBWjQlVpSs>
+* 🎥 ALZ Weekly — *How to Stay Current with ALZ Azure Policies*:
+  <https://www.youtube.com/watch?v=ddcVKS_MKkk>
 
 ---
 

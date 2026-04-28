@@ -424,6 +424,10 @@ Security is not a single gate but a set of overlapping controls, each assuming t
 * `gitleaks`: <https://github.com/gitleaks/gitleaks>
 * `actionlint`: <https://github.com/rhysd/actionlint>
 * `zizmor` (Actions audit): <https://github.com/woodruffw/zizmor>
+* 🎥 ALZ Weekly — *When to use SLZ over ALZ?*:
+  <https://www.youtube.com/watch?v=r8h7F6IJIqw>
+* 🎥 ALZ Weekly — *Subscription Vending: Repo Structure, Security & Multi-Tenant*:
+  <https://www.youtube.com/watch?v=11PmT0t6TUI>
 
 ---
 

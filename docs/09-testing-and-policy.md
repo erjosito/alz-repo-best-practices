@@ -534,6 +534,10 @@ The discipline of layered validation ultimately comes down to shortening the fee
 * Microsoft, *Azure Policy as code*:
   <https://learn.microsoft.com/azure/governance/policy/concepts/policy-as-code>
 * OPA / Rego: <https://www.openpolicyagent.org/docs/latest/policy-language/>
+* 🎥 ALZ Weekly — *How to Stay Current with ALZ Azure Policies*:
+  <https://www.youtube.com/watch?v=ddcVKS_MKkk>
+* 🎥 ALZ Weekly — *Using EPAC for Azure Policy in ALZ*:
+  <https://www.youtube.com/watch?v=x1I_XhC6GtA>
 
 ---
 
