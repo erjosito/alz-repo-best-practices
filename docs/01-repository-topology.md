@@ -27,11 +27,17 @@ do** (Terraform Registry, then private registries, then OCI). Today most
 > 📘 **Key terms**
 >
 > **ALZ (Azure Landing Zone)** — a pre‑configured Azure environment (management groups, subscriptions, policies, networking) that follows Microsoft's Cloud Adoption Framework and is ready to host workloads securely at scale.
+>
 > **IaC (Infrastructure as Code)** — the practice of defining cloud infrastructure in declarative or imperative code files (Terraform, Bicep, Pulumi) rather than manual portal clicks, enabling version control, review, and automation.
+>
 > **SVN (Subversion)** — a centralised version‑control system that predated Git's dominance.
+>
 > **Cargo‑culting** — blindly copying a practice from another context without understanding why it worked there.
+>
 > **Git submodules** — a Git feature that embeds one repository inside another; notoriously difficult to manage and a common source of checkout confusion.
+>
 > **Module registries** — hosted catalogues (e.g. Terraform Registry, Azure Container Registry) that distribute versioned IaC modules, replacing error‑prone Git‑source references.
+>
 > **OCI (Open Container Initiative)** — a standard for container image formats and registries, increasingly used to distribute non‑container artefacts such as IaC modules.
 mature ALZ implementations live in a *small number* of carefully chosen
 repos — neither a single behemoth nor an unmanageable swarm — and that's

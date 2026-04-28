@@ -32,11 +32,17 @@ getting into those patterns, one question needs settling: which platform?
 > 📘 **Key terms**
 >
 > **Pipeline‑as‑code** — defining your CI/CD pipeline in a version‑controlled file (e.g. `.github/workflows/*.yml`, `azure-pipelines.yml`) rather than a GUI, so it is reviewable, auditable, and versionable alongside the code it deploys.
+>
 > **Reusable workflows** — GitHub Actions feature (`workflow_call`) that lets you define a workflow once in a central repository and call it from many consumer repos, keeping pipeline logic DRY.
+>
 > **Matrix builds** — a CI/CD pattern that spawns parallel jobs for each entry in a list (e.g. one job per environment or workload), so changes to many targets are validated concurrently.
+>
 > **Ephemeral runners** — CI/CD build agents that are created for a single job and destroyed afterward, eliminating the risk of credential leakage or cross‑job contamination.
+>
 > **`workflow_dispatch`** — a GitHub Actions trigger that allows manually starting a workflow from the UI or API, typically used for break‑glass operations.
+>
 > **Idempotent** — a property meaning that running the same operation multiple times produces the same result as running it once. Critical for `apply` retries: re‑applying the same plan should not create duplicate resources.
+>
 > **DX (Developer Experience)** — the overall quality of the tooling, documentation, and workflows from a developer's perspective.
 
 ## GitHub Actions vs Azure DevOps Pipelines

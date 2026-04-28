@@ -30,11 +30,17 @@ table stakes. The question is what it actually takes to get there.
 > 📘 **Key terms**
 >
 > **Devcontainer** — a specification (`.devcontainer/devcontainer.json`) that defines a reproducible development environment inside a container, including all tools, extensions, and settings. GitHub Codespaces and VS Code use it natively.
+>
 > **`mise` / `asdf`** — version‑manager tools that pin CLI tool versions (Terraform, az, tflint) per project via a dotfile (`.mise.toml` / `.tool-versions`), ensuring every developer uses the same versions without containers.
+>
 > **Taskfile** — a modern alternative to `Makefile` (`Taskfile.yml`) for defining project‑level commands (e.g. `task plan`, `task lint`), with YAML syntax and dependency support.
+>
 > **Pre‑commit hooks** — Git hooks that run checks (formatting, linting, secret scanning) automatically before each `git commit`, catching issues at the earliest possible stage.
+>
 > **Conventional Commits** — a commit‑message convention (e.g. `feat:`, `fix:`, `chore:`) that enables automated changelog generation and semantic version bumping.
+>
 > **EditorConfig** — a simple dotfile (`.editorconfig`) that standardises indent style, charset, and line endings across editors and IDEs.
+>
 > **Codespaces** — GitHub's cloud‑hosted development environment that launches a devcontainer in the browser, eliminating local setup entirely.
 
 ## The "five‑minute onboarding" target

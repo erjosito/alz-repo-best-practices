@@ -32,10 +32,15 @@ dumping ground.
 > 📘 **Key terms**
 >
 > **ADR (Architecture Decision Record)** — a short, immutable document capturing a single architectural decision: the context, the decision itself, and the consequences. Stored in `docs/adr/` and numbered sequentially.
+>
 > **Diátaxis** — a documentation framework by Daniele Procida that classifies all technical content into exactly four types (tutorials, how‑to guides, reference, explanation), arguing that mixing types in one document is the most common documentation failure.
+>
 > **Mermaid** — a text‑based diagramming language rendered natively by GitHub in markdown code blocks (` ```mermaid `). Supports flowcharts, sequence diagrams, state diagrams, and more.
+>
 > **D2** — a modern, text‑based diagram scripting language designed for software architecture diagrams, with auto‑layout and theming.
+>
 > **Excalidraw** — a virtual whiteboard tool that produces hand‑drawn‑style diagrams, storable as JSON and embeddable in repos.
+>
 > **PSDocs** — a PowerShell‑based documentation generator that produces markdown from Azure resource templates, analogous to `terraform-docs` for Bicep/ARM.
 
 Not every piece of content that belongs in that library is the same kind of thing — and treating them as interchangeable is the first step towards a docs folder nobody trusts. The Diátaxis framework provides a useful taxonomy.

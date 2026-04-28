@@ -25,9 +25,13 @@ rather than aspirational.
 > 📘 **Key terms**
 >
 > **CAF (Cloud Adoption Framework)** — Microsoft's comprehensive guidance for cloud strategy, governance, and implementation. Its naming and tagging recommendations are the de facto standard for Azure estates.
+>
 > **Resource abbreviations** — a CAF‑published list of short prefixes for each Azure resource type (e.g. `rg-` for resource groups, `st` for storage accounts, `kv-` for key vaults).
+>
 > **Modify effect** — an Azure Policy effect that automatically adds or corrects properties on resources (e.g. appending a tag inherited from the resource group) without denying the deployment.
+>
 > **Canonical values** — a fixed, enumerated set of allowed values for a tag or naming segment (e.g. `env` ∈ {`prod`, `nonprod`, `sandbox`}), enforced by policy to prevent free‑text inconsistency.
+>
 > **Data classification** — a tagging practice that labels resources by sensitivity level (e.g. `Public`, `Internal`, `Confidential`, `Restricted`) to drive security automation and access control.
 
 Tagging followed a similar arc: a brief flirtation

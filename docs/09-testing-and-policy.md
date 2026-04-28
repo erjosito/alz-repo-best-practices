@@ -34,12 +34,19 @@ where each layer belongs.
 > 📘 **Key terms**
 >
 > **Policy‑as‑code** — expressing governance rules (naming, allowed SKUs, required tags) in version‑controlled code so they are testable, reviewable, and enforceable automatically.
+>
 > **OPA (Open Policy Agent)** — a CNCF‑graduated general‑purpose policy engine. Policies are written in the **Rego** language and evaluated against structured data (e.g. a Terraform plan JSON).
+>
 > **SARIF (Static Analysis Results Interchange Format)** — a JSON‑based standard for reporting findings from static‑analysis tools. GitHub's code scanning UI can ingest SARIF files directly.
+>
 > **Terratest** — a Go library by Gruntwork for writing automated integration tests that deploy real infrastructure, validate it, and tear it down.
+>
 > **CIS (Center for Internet Security)** — an organisation that publishes security benchmarks (e.g. CIS Azure Foundations Benchmark) used by tools like Checkov and PSRule.
+>
 > **Dynamic blocks** — a Terraform construct (`dynamic "block_name" { ... }`) that generates repeated nested blocks from a collection, used to keep module code DRY.
+>
 > **Fixture resources** — pre‑created, known‑good resources (or resource definitions) used as stable inputs for integration tests, avoiding hard‑coded names that cause collisions.
+>
 > **Smoke test** — a lightweight, fast test that checks whether the most critical path works at all (e.g. "did the deployment succeed and is the resource reachable?"), without exhaustive validation.
 
 ## The testing pyramid for IaC

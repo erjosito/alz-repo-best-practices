@@ -81,10 +81,15 @@ Azure resources.
 > 📘 **Key terms**
 >
 > **SemVer (Semantic Versioning)** — a versioning scheme (`MAJOR.MINOR.PATCH`) where each component signals the type of change: major = breaking, minor = new features, patch = bug fixes.
+>
 > **Conventional Commits** — a commit‑message convention (e.g. `feat:`, `fix:`, `chore:`) that enables tools like `release-please` to automate changelog generation and version bumping.
+>
 > **MCR (Microsoft Container Registry)** — Microsoft's public OCI registry (`mcr.microsoft.com`) used to distribute container images and Bicep modules.
+>
 > **OCI (Open Container Initiative)** — an industry standard for container image formats and distribution; registries that speak OCI can also host IaC modules.
+>
 > **DRY (Don't Repeat Yourself)** — a software principle: every piece of knowledge should have a single, authoritative representation in the codebase.
+>
 > **WAF (Well-Architected Framework)** — Microsoft's set of design principles for building reliable, secure, cost‑efficient and performant Azure workloads.
 
 **Don't** use AVM *pattern* modules in production without wrapping them. They
