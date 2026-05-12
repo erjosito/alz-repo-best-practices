@@ -1,0 +1,9 @@
+out/
+
+# PDF build intermediates (keep the final PDF in dist/)
+dist/alz-combined.md
+dist/mermaid-images/
+dist/mermaid-config.json
+dist/cover.svg
+dist/cover.png
+.DS_Store
