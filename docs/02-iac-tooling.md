@@ -3,7 +3,7 @@
 **In this chapter:**
 
 - [How we got here](#how-we-got-here)
-- [TL;DR recommendation](#tldr-recommendation)
+- [Summary recommendation](#summary-recommendation)
 - [The contenders](#the-contenders)
 - [Decision criteria](#decision-criteria)
 - [Mixing engines — when, and how to survive it](#mixing-engines-when-and-how-to-survive-it)
@@ -39,7 +39,7 @@ loyal niche but never displaced Terraform for ops‑led teams. Today the
 honest answer to "Bicep or Terraform?" is "whichever your team will still
 be operating well at 2 a.m." — both are first‑class on Azure in 2026.
 
-## TL;DR recommendation
+## Summary recommendation
 
 The short version, before we go deeper into each tool's strengths and failure modes:
 

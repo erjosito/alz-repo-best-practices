@@ -1,0 +1,47 @@
+name: Build PDF
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'README.md'
+      - '.github/skills/generate-pdf/**'
+      - '.github/workflows/build-pdf.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-pdf:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build combined markdown with rendered diagrams
+        run: node .github/skills/generate-pdf/scripts/build-pdf.mjs
+
+      - name: Generate PDF
+        run: |
+          npx --yes md-to-pdf dist/alz-combined.md \
+            --config-file .github/skills/generate-pdf/scripts/pdf-config.json
+          mv dist/alz-combined.pdf dist/ALZ-IaC-Best-Practices.pdf
+
+      - name: Commit PDF to repo
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add dist/ALZ-IaC-Best-Practices.pdf
+          if git diff --cached --quiet; then
+            echo "PDF unchanged -- nothing to commit"
+          else
+            git commit -m "chore: regenerate PDF ($(git rev-parse --short HEAD))"
+            git push
+          fi

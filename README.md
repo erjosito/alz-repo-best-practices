@@ -17,7 +17,7 @@ When the first Azure Landing Zone accelerators appeared in 2020–2021, most ent
 
 This guide exists to address the repository and operating model — not the policy library or the network topology, but the decisions that determine whether your ALZ implementation remains manageable at year three as much as at day one. It draws on official Microsoft guidance, community patterns from the IaC ecosystem, and the lessons of platform engineering teams that have operated Azure estates at enterprise scale. The "How we got here" narratives at the start of each chapter trace how the industry's tooling and thinking evolved to produce the current best practices — so you understand not just *what* to do, but *why* the field landed there.
 
-It is written for platform engineers and DevOps architects who are either building a new ALZ implementation or inheriting one that needs to be brought up to a higher standard. If you are starting fresh, read the chapters in order. If you are inheriting an existing estate, start with the TL;DR below and Chapter 14 — the anti-pattern checklist is the fastest way to identify where the most pressing technical debt lives.
+It is written for platform engineers and DevOps architects who are either building a new ALZ implementation or inheriting one that needs to be brought up to a higher standard. If you are starting fresh, read the chapters in order. If you are inheriting an existing estate, start with the summary below and Chapter 14 — the anti-pattern checklist is the fastest way to identify where the most pressing technical debt lives.
 
 ---
 
@@ -65,7 +65,7 @@ A consolidated list of external references is in
 
 ---
 
-## A quick TL;DR for the impatient
+## A quick summary for the impatient
 
 If you take nothing else from this guide:
 
@@ -81,6 +81,26 @@ If you take nothing else from this guide:
    environment per workload, not one giant state file for the whole tenant.
 
 The rest of this repo explains *why*.
+
+---
+
+## 📄 PDF version
+
+A print-ready PDF of the full guide is available at
+[`dist/ALZ-IaC-Best-Practices.pdf`](dist/ALZ-IaC-Best-Practices.pdf) —
+optimised for e-readers (reMarkable, Kindle) with rendered diagrams, tables,
+and a cover page showing the version it was built from.
+
+To regenerate after editing docs:
+
+```bash
+node .github/skills/generate-pdf/scripts/build-pdf.mjs \
+  && npx md-to-pdf dist/alz-combined.md --config-file .github/skills/generate-pdf/scripts/pdf-config.json \
+  && mv dist/alz-combined.pdf dist/ALZ-IaC-Best-Practices.pdf
+```
+
+Requires Node.js 20+. Dependencies (`md-to-pdf`, `@mermaid-js/mermaid-cli`)
+are fetched automatically via `npx`.
 
 ---
 
