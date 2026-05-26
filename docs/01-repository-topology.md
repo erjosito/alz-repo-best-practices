@@ -19,18 +19,21 @@
 
 [← Back to index](../README.md) · Next → [02 IaC tooling](02-iac-tooling.md)
 
-**Recommendation in one paragraph.** For roughly 80 % of enterprise ALZ
-implementations, adopt a layered **"few‑repo"** topology: three to five Git
-repositories aligned to natural ownership boundaries (foundation, platform,
-modules, landing zones, and optionally policies). A pure monorepo is correct
-only for small estates with a single platform team; a pure multi‑repo is
-correct only when you have a self‑service developer portal and the platform
-investment to keep dozens of repos aligned. Treat this as an *ownership*
-question, not a tooling question — repo boundaries should mirror who is on
-call, who approves changes, and who is accountable when something breaks.
-Get it wrong early and you will spend years either drowning in cross‑repo
-PRs or watching a single broken pipeline freeze the entire estate; repo
-topology is one of the costliest things to refactor after the fact.
+For roughly 80 % of enterprise ALZ implementations, the right answer is a
+layered **"few‑repo"** topology: three to five Git repositories aligned to
+the natural ownership boundaries of foundation, platform, modules,
+landing zones, and (optionally) policies. A pure monorepo is correct only
+for small estates with a single platform team, and a pure multi‑repo is
+correct only when you have a self‑service developer portal and the
+platform investment to keep dozens of repositories aligned with each
+other. The recurring mistake is treating this as a tooling question when
+it is really an ownership question — repo boundaries should mirror who is
+on call, who approves changes, and who is held accountable when something
+breaks. The cost of getting it wrong is unusually high because repository
+topology is one of the most expensive things to refactor after the fact:
+get it wrong on day one and you will spend years either drowning in
+cross‑repo pull requests or watching a single broken pipeline freeze the
+entire estate.
 
 ---
 
@@ -152,12 +155,15 @@ where each one breaks down in practice.
 
 ## Option A — Pure monorepo
 
-**Verdict:** correct only for small estates (<10 landing zones) with a
-single platform team and no separation‑of‑duties requirement. Beyond that
-threshold, the operational tax (coarse permissions, slow pipelines, scary
-shared blast radius) compounds quickly.
-
-**Layout sketch**
+A single repository holds the foundation, the platform, every reusable
+module, and every application landing zone. This is the simplest topology
+to start with — and for small estates with a single platform team and no
+separation‑of‑duties requirement, it is also the right one. Beyond
+roughly ten landing zones, however, the operational tax begins to compound
+quickly: permissions get coarser than your governance model wants,
+pipelines get slower than your developers will tolerate, and the shared
+blast radius starts to make even routine commits feel risky. A typical
+layout looks like this:
 
 ```
 alz/
@@ -180,38 +186,45 @@ alz/
 * **Easy refactoring** with codebase‑wide search/replace and IDE rename.
 * **One pipeline framework** to maintain.
 
-### ❌ Cons
-> 📘 **CODEOWNERS** — a file (`.github/CODEOWNERS`) that maps file‑path patterns to GitHub teams or users who must approve PRs touching those paths. Only enforced when branch protection requires CODEOWNERS review.
+> 📘 **Key terms used below**
+>
+> **CODEOWNERS** — a file (`.github/CODEOWNERS`) that maps file‑path patterns to GitHub teams or users who must approve PRs touching those paths. Only enforced when branch protection requires CODEOWNERS review.
+>
+> **Blast radius** — the scope of damage a single failure can cause. In IaC, this is typically defined by what resources a single `terraform apply` or deployment stack can touch. Smaller blast radius means a mistake affects fewer resources.
+>
+> **Path filters & matrix builds** — path filters trigger a pipeline only when files in specific directories change, avoiding unnecessary runs. Matrix builds run multiple jobs in parallel (e.g. one per environment or workload), allowing a single workflow to plan/apply many targets concurrently.
 
+### ❌ Cons
 * **Permissions are coarse.** GitHub repo roles apply to the whole repo;
   fine‑grained access requires CODEOWNERS + branch protection gymnastics.
-> 📘 **Blast radius** — the scope of damage a single failure can cause. In IaC, this is typically defined by what resources a single `terraform apply` or deployment stack can touch. Smaller blast radius means a mistake affects fewer resources.
-
 * **Pipeline scaling.** A naive workflow that runs `terraform plan` on the
-> 📘 **Path filters & matrix builds** — path filters trigger a pipeline only when files in specific directories change, avoiding unnecessary runs. Matrix builds run multiple jobs in parallel (e.g. one per environment or workload), allowing a single workflow to plan/apply many targets concurrently.
-
   whole repo on every PR becomes unusable past ~50 workloads. You **must**
   invest in path filters and matrix builds early.
 * **Blast radius psychology.** Engineers see the foundation code next to their
   app code and either get scared to commit or, worse, don't.
 * **Single CODEOWNERS becomes a 500‑line file** that nobody reviews.
 
-### When it works
-Small estates (<10 application landing zones), one platform team, no strict
-separation of duties between platform and application teams.
-
-For anything larger — or any team that has received a polite request to "please add just 20 more workloads this quarter" — the monorepo cracks start to show. The other extreme makes the ownership tradeoffs explicit.
+The monorepo cracks start to show the moment a team that has been comfortably
+shipping a handful of workloads receives the polite request to "please add
+just twenty more this quarter". When that happens, the natural next move is
+the opposite extreme, where every ownership boundary is made explicit by
+giving each one its own repository.
 
 ---
 
 ## Option B — Pure multi‑repo
 
-**Verdict:** correct only at very large scale (100+ landing zones) with a
-self‑service developer portal and dedicated platform investment to keep
-dozens of repos aligned. Without that scaffolding, the coordination cost
-swamps the benefits.
-
-Every workload, every module, every policy set in its own repo.
+The opposite extreme is to give every workload, every module, and every
+policy set its own repository. The discipline this enforces is obvious —
+each repo maps cleanly to a single team, a single on‑call rotation, and a
+single release cadence — but the coordination tax is just as obvious.
+This topology is correct only at very large scale (100+ landing zones)
+where you already have a self‑service developer portal and the platform
+investment to keep dozens of repos honest with each other. Without that
+scaffolding, the cost of cross‑cutting changes swamps the benefits
+quickly. A layout in this style does not need a diagram: it looks like
+sixty repositories with broadly similar contents and slightly different
+names.
 
 ### ✅ Pros
 * **Crystal‑clear ownership** — repo = team = on‑call rotation.
@@ -229,24 +242,24 @@ Every workload, every module, every policy set in its own repo.
   (cookiecutter, Backstage, `gh repo template`) just to keep them aligned.
 * **Discoverability suffers.** New engineers ask "where is X?" constantly.
 
-### When it works
-Very large estates (100+ landing zones), strong platform engineering investment
-in a self‑service portal/scaffolding (Backstage, internal CLI), strict
-regulatory separation between teams.
-
-Most organisations don't fit neatly into either extreme, which is precisely why the third option exists — it trades the cleanness of the two poles for something more pragmatic and, in practice, more durable.
+Most organisations don't fit neatly into either of these two extremes,
+which is precisely why a third option exists. It trades the conceptual
+cleanness of the poles for something more pragmatic and, in practice,
+more durable.
 
 ---
 
 ## Option C — Layered "few‑repo" (recommended default)
 
-**Verdict:** the right answer for ~80 % of enterprise ALZ implementations.
-Three to five repos aligned to natural ownership boundaries — coherent
-CODEOWNERS per repo, independent cadences, and a module registry that
-keeps consumers honest.
-
-The pragmatic compromise. **Three to five repos**, aligned to the natural
-ownership boundaries:
+The pragmatic compromise sits between the two extremes, and it is the
+right answer for roughly 80 % of enterprise ALZ implementations: three to
+five repositories aligned to the natural ownership boundaries, each with
+a coherent `CODEOWNERS`, its own approval policy, and its own pipeline
+cadence, with a module registry that keeps consumers honest about which
+version they depend on. The split below is the one most enterprises
+converge on, although the exact naming and whether to peel off
+`alz-policies` as a fifth repo are matters of local preference rather
+than principle:
 
 | Repo | Owner | Cadence | Typical blast radius |
 |------|-------|---------|----------------------|
@@ -268,16 +281,18 @@ ownership boundaries:
   workload deployments.
 
 ### ❌ Cons
-* Cross‑repo refactors still require coordination — but they are rare by
-  construction (foundation rarely changes).
-* Need a shared **pipeline template repo** (`alz-pipeline-templates`) or
-  reusable workflows so the four repos don't drift in their CI definitions.
+* Cross‑repo refactors that genuinely span layers — bumping a module that
+  foundation, platform, and landing zones all consume — still need
+  coordination. They are rare by construction (foundation rarely
+  changes), but you should plan for them rather than wish them away.
+* You need a shared **pipeline template repo** (`alz-pipeline-templates`)
+  or reusable workflows so the four or five repos don't drift in their CI
+  definitions.
 
-### Where it still bites
-Cross‑repo refactors that genuinely *do* span layers — bumping a module
-that foundation, platform, and landing zones all consume — still need
-coordination. They are rare by construction (foundation rarely changes),
-but plan for them rather than wishing them away.
+Even with these caveats, the few‑repo split is the default the rest of
+this book assumes when a chapter needs to talk about "the platform repo"
+or "the modules repo". It is not, however, the only defensible choice,
+and the next callout summarises the live debate among practitioners.
 
 > ⚖️ **The debate — monorepo vs few‑repo for IaC**
 >
@@ -314,18 +329,16 @@ but plan for them rather than wishing them away.
 
 ## When ownership boundaries blur — cross‑team resources
 
-**The principle:** when a resource crosses ownership boundaries, separate
-**ownership of intent** (the team that knows *what* the rule needs to do)
-from **ownership of implementation** (the team that owns the deployable
-code), and enforce the boundary with Azure Policy, CODEOWNERS, or both.
-Option C assumes clean ownership — the platform team owns the platform
-repo, app teams own their landing zones — but reality is messier. Some
-Azure resources sit at the boundary between platform and application, and
-no repo split eliminates the tension entirely.
-
-Two recurring examples illustrate the pattern, followed by a decision
-heuristic and the most common variants (DNS, subscription vending,
-multi‑region).
+Option C assumes clean ownership boundaries — the platform team owns the
+platform repo, app teams own their landing zones — but reality is
+messier. Some Azure resources sit at the boundary between platform and
+application, and no repo split eliminates the tension entirely. The way
+through it is to separate **ownership of intent** (the team that knows
+*what* the rule needs to do) from **ownership of implementation** (the
+team that owns the deployable code), and then to enforce the boundary
+with Azure Policy, `CODEOWNERS`, or both. Two recurring examples
+illustrate the pattern, followed by a decision heuristic and the most
+common variants (DNS, subscription vending, multi‑region).
 
 ### NSGs — app‑owned resource, platform‑mandated rules
 
@@ -334,7 +347,9 @@ app team knows which ports their workload needs. But the central security team
 mandates baseline rules: no `*`‑to‑`*` inbound, required deny‑all at the
 bottom, specific allowed sources for management traffic.
 
-**Recommended pattern: app ownership + policy guardrails.**
+The pattern that survives contact with reality combines **app ownership
+with policy guardrails**, so that the app team retains day‑to‑day control
+of the rules while the security team retains the veto. Concretely:
 
 * The **app team owns the NSG code** in their landing zone folder and submits
   PRs for rule changes.
@@ -359,7 +374,10 @@ owns the firewall configuration. But the *knowledge* of which TCP/UDP flows
 each application needs lives with the app teams — and platform engineers
 can't write rules they don't understand.
 
-**Recommended pattern: PR‑based request flow with optional data‑driven automation.**
+The workable pattern here is a **PR‑based request flow**, with optional
+data‑driven automation layered on top once the volume of requests
+justifies it. Most teams should start at level 1 and only graduate to
+level 2 when the manual review queue becomes a bottleneck.
 
 **Level 1 — PR‑based requests** (works for any team size):
 
