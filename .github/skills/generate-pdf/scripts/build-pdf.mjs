@@ -31,6 +31,14 @@ writeFileSync(mermaidConfig, JSON.stringify({
   themeVariables: { fontSize: '13px', fontFamily: 'arial,sans-serif' },
 }));
 
+// Puppeteer config for mermaid-cli: required on Ubuntu 23.10+ GitHub
+// runners where unprivileged user namespaces are restricted by AppArmor,
+// causing the bundled Chromium to fail with "No usable sandbox".
+const puppeteerConfig = join(outDir, 'puppeteer-config.json');
+writeFileSync(puppeteerConfig, JSON.stringify({
+  args: ['--no-sandbox', '--disable-setuid-sandbox'],
+}));
+
 let diagramIndex = 0;
 
 function renderMermaidBlocks(content, sourceFile) {
@@ -49,7 +57,7 @@ function renderMermaidBlocks(content, sourceFile) {
 
     try {
       execSync(
-        `npx --yes @mermaid-js/mermaid-cli -i "${mmdFile}" -o "${pngFile}" -c "${mermaidConfig}" -w 800 -b white --scale 1`,
+        `npx --yes @mermaid-js/mermaid-cli -i "${mmdFile}" -o "${pngFile}" -c "${mermaidConfig}" -p "${puppeteerConfig}" -w 800 -b white --scale 1`,
         { timeout: 60_000, cwd: repoRoot },
       );
       const b64 = readFileSync(pngFile).toString('base64');
