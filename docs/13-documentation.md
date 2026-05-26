@@ -24,14 +24,17 @@
 
 [← 12 Naming & tagging](12-naming-and-tagging.md) · [Index](../README.md) · [14 Anti‑patterns →](14-anti-patterns.md)
 
-Keep ALZ documentation small, repo-native, and purpose-specific: tutorials
-teach, how-tos guide, reference is generated, and ADRs preserve why. Code
-tells you *what* the system does; documentation tells you *why* it does it,
-*how* to change it safely, and *where* to start when everything is on fire.
-Most IaC repos skimp on all three — and then wonder why onboarding takes
-three months and runbooks get executed incorrectly under pressure. This
-chapter sets out a disciplined, minimal approach to documentation that lives
-in the repo, decays slowly, and actually gets used.
+Keep Azure Landing Zone (ALZ) Infrastructure as Code (IaC) documentation
+small, repo-native, and purpose-specific: tutorials teach, how-tos guide,
+reference is generated, and Architecture Decision Records (ADRs) preserve
+why. Code tells you *what* the system does; documentation tells you *why* it
+does it, *how* to change it safely, and *where* to start when everything is
+on fire. Most IaC repos skimp on all three — and then wonder why onboarding
+takes three months and runbooks get executed incorrectly under pressure.
+This chapter sets out a disciplined, minimal approach to documentation that
+lives in the repo, decays slowly, and actually gets used, beginning with how
+repository documentation escaped from the shared-drive era in the first
+place.
 
 ---
 
@@ -40,19 +43,21 @@ in the repo, decays slowly, and actually gets used.
 Pre‑2010, infrastructure documentation lived in Word documents on a
 shared drive nobody had write access to. The wiki era (Confluence,
 SharePoint, MediaWiki) was a step forward in *editability* but a step
-backward in *trustworthiness* — there was no diff, no PR, no link to
-the code, and the docs decayed silently. Two ideas fixed this. First,
-**Architecture Decision Records** — a one‑page format proposed by
-Michael Nygard in 2011 — gave teams a way to capture *why* a decision
-was made, immutably and in version control. Second, the **Diátaxis
-framework** (Daniele Procida, 2017–2021) explained *why* most
-documentation is bad: it conflates tutorials, how‑tos, reference, and
-explanation into one unreadable mess. Tooling caught up: **Mermaid**
-landed in GitHub markdown in 2022, killing the binary‑diagram era; **D2**
-and **Excalidraw** gave teams text‑based architecture diagrams; and
-**`terraform-docs`** / **PSDocs** automated the reference layer. The modern
-IaC repo's docs/ folder is a small, disciplined library — not a
-dumping ground.
+backward in *trustworthiness* — there was no diff, no pull request (PR),
+no link to the code, and the docs decayed silently. Two ideas fixed this.
+First, **Architecture Decision Records** — a one‑page format proposed by
+Michael Nygard in 2011 — gave teams a way to capture *why* a decision was
+made, immutably and in version control. Second, the **Diátaxis framework**
+(Daniele Procida, 2017–2021) explained *why* most documentation is bad: it
+conflates tutorials, how‑tos, reference, and explanation into one
+unreadable mess. Tooling caught up: **Mermaid** landed in GitHub markdown
+in 2022, killing the binary‑diagram era; **D2** and **Excalidraw** gave
+teams text‑based architecture diagrams; and **`terraform-docs`** / **PSDocs**
+automated the reference layer. That history leaves you with a practical
+design problem rather than a nostalgia lesson: the modern IaC repo's
+`docs/` folder has to be a small, disciplined library, not a dumping
+ground, and the decision framework below turns that principle into a set
+of choices.
 
 > 📘 **Key terms**
 >
@@ -72,10 +77,11 @@ dumping ground.
 
 ## Decision framework
 
-Decide the documentation system by answering these questions in order. The
-goal is not "more docs"; it is the smallest set of repo-native documents
-that explains how to work safely, what the estate contains, and why the hard
-decisions were made.
+Because the historical failure mode was unmanaged sprawl, decide the
+documentation system by answering these questions in order. The goal is not
+"more docs"; it is the smallest set of repo-native documents that explains
+how to work safely, what the estate contains, and why the hard decisions
+were made.
 
 1. **Which of the four documentation kinds do you owe?**
    * Tutorials, how-tos, reference, and explanation are different jobs;
@@ -102,16 +108,17 @@ decisions were made.
      that drift away from the decision context.
 
 The detailed conventions below apply those answers to each document type.
+Start with the four-kind taxonomy, because it determines whether the next
+file you write should teach, guide, explain, or simply report facts.
 
 ---
 
 ## The four kinds of documentation
 
-**Verdict:** every document should be exactly one Diátaxis kind;
-mixed-purpose docs become unreadable and unowned.
-
-Inspired by the [Diátaxis framework](https://diataxis.fr/) — every piece of
-documentation should be exactly one of:
+The first decision is to give every document exactly one Diátaxis job,
+because mixed-purpose docs become unreadable, unowned, and eventually
+untrusted. Inspired by the [Diátaxis framework](https://diataxis.fr/), every
+piece of documentation should be exactly one of these four kinds:
 
 ```mermaid
 flowchart TB
@@ -144,19 +151,20 @@ flowchart TB
 | **Reference** | Look up exact details | Auto‑generated from code |
 | **Explanation** | Understand *why* | `docs/adr/`, this guide |
 
-Mixing types in one document is the most common documentation failure.
-
-With the taxonomy established, apply it first to the document every reader
-encounters before anything else.
+The taxonomy matters because mixing types in one document is the most common
+documentation failure: a tutorial that tries to be a reference becomes too
+long to follow, while a reference that tries to explain every decision stops
+being searchable. With that distinction established, apply it first to the
+document every reader encounters before anything else.
 
 ---
 
 ## Top‑level `README.md`
 
-**Verdict:** the top-level README is a one-screen map to the repo, not the
-documentation set itself.
-
-The first thing every reader sees. Aim for **one screen**:
+Once you separate tutorials, how-tos, reference, and explanation, the
+top-level README can stop trying to contain all of them and become what it
+should have been all along: a one-screen map to the repo. It is the first
+thing every reader sees, so aim for **one screen**:
 
 ```markdown
 # alz-platform
@@ -189,18 +197,21 @@ make plan ENV=nonprod WORKLOAD=connectivity
 Platform engineering · #alz-platform · platform@contoso.com
 ```
 
-Anything more goes behind a link. Long READMEs go unread.
-
-A good README is a table of contents for the rest of the documentation. The most important item it should point to is the ADR log — the record of *why* the system is built the way it is, without which every architectural choice becomes oral tradition that disappears when the original architect leaves.
+Anything more goes behind a link, because long READMEs go unread precisely
+when a new contributor most needs a map. A good README is therefore a table
+of contents for the rest of the documentation, and the most important item
+it should point to is the ADR log — the record of *why* the system is built
+the way it is, without which every architectural choice becomes oral
+tradition that disappears when the original architect leaves.
 
 ---
 
 ## Architecture Decision Records (ADRs)
 
-**Verdict:** any architectural decision worth defending in a year belongs in an ADR.
-
-Every non‑trivial decision (this guide is full of them) should be captured
-as a short, dated, immutable record.
+Because the README can only point to the reasoning, any architectural
+decision worth defending in a year belongs in an ADR. Every non‑trivial
+decision — and this guide is full of them — should be captured as a short,
+dated, immutable record.
 
 `docs/adr/0001-monorepo-or-multirepo.md`:
 
@@ -237,28 +248,31 @@ repo published to ACR.
 - docs/01-repository-topology.md
 ```
 
-ADRs are **never edited**. If the decision changes, write a new ADR that
-*supersedes* the old one and link them.
-
-Tools:
+ADRs are **never edited**; if the decision changes, write a new ADR that
+*supersedes* the old one and link them, so the reader can see both the
+original constraint and the later correction. Lightweight tools can help you
+keep that discipline without turning ADRs into a parallel publishing system:
 
 * [`adr-tools`](https://github.com/npryce/adr-tools) — `adr new "Topology"`.
 * [`log4brains`](https://github.com/thomvaill/log4brains) — renders ADRs as
   a static site.
 
-ADRs capture decisions in prose; some decisions — particularly around network topology and identity flows — are better expressed visually. The challenge is keeping those visuals version-controlled and diffable, rather than letting them become the same undiffable artefacts as the Word documents they replaced.
+ADRs capture decisions in prose; some decisions — particularly around
+network topology and identity flows — are better expressed visually. The
+challenge is keeping those visuals version-controlled and diffable, rather
+than letting them become the same undiffable artefacts as the Word documents
+they replaced, which is why diagram source deserves the same treatment as
+code.
 
 ---
 
 ## Diagrams as code
 
-**Verdict:** diagrams belong in version-controlled text sources, with
-rendered images treated as generated outputs.
-
-Binary `.drawio` / Visio files in Git are an anti‑pattern: undiffable,
-unmergeable, immediately stale.
-
-Use diagrams as code:
+The same rule that makes ADRs trustworthy also applies to diagrams: the
+source belongs in version-controlled text, and rendered images are generated
+outputs. Binary `.drawio` / Visio files in Git are an anti‑pattern because
+they are undiffable, unmergeable, and immediately stale, so use diagrams as
+code instead:
 
 | Tool | Best for |
 |------|----------|
@@ -269,9 +283,9 @@ Use diagrams as code:
 | **Draw.io with `.drawio.svg`** | If you must — the SVG variant is text and renders as PNG on GitHub. |
 
 Keep both source (`*.mmd`, `*.d2`, `*.excalidraw`) and rendered PNG/SVG so
-the README looks right without local tooling. CI re‑renders on PR.
-
-Embed in markdown:
+the README looks right without local tooling, and let continuous integration
+(CI) re‑render the diagram on every PR. In the common case, the diagram can
+then sit directly in markdown:
 
 ````markdown
 ```mermaid
@@ -282,14 +296,17 @@ flowchart LR
 ```
 ````
 
+Once diagrams and ADRs are versioned, the remaining documentation risk is
+the material that changes every time code changes. That is where generated
+reference documentation becomes non-negotiable.
+
 ---
 
 ## Auto‑generated reference
 
-**Verdict:** reference docs cannot be hand-written reliably; generate them
-and fail CI when they drift.
-
-Generate them:
+Reference docs cannot be hand-written reliably, because the exact details
+they describe are the same details your modules, policies, and pipelines
+change most often. Generate them and fail CI when they drift:
 
 * **Module READMEs:** `terraform-docs` or `PSDocs.Azure` — see
   [10 code quality](10-code-quality.md).
@@ -301,48 +318,51 @@ Generate them:
   from your naming module.
 
 CI runs the generators and fails the build if the generated output differs
-from the committed copy. This is **the only way** reference docs stay
-correct.
+from the committed copy; this is **the only way** reference docs stay
+correct. Once that reference layer can be trusted, the next question is how
+you help a contributor make a safe first change.
 
 ---
 
 ## CONTRIBUTING.md
 
-**Verdict:** `CONTRIBUTING.md` should make the first PR possible without
-tribal knowledge.
-
-Tells new contributors how to play nicely:
+If generated reference tells you what exists, `CONTRIBUTING.md` tells you
+how to change it without relying on tribal knowledge. It should make the
+first PR possible by explaining the working agreement in one short file:
 
 * How to set up the dev environment (link to README quick start).
 * PR conventions (Conventional Commits, PR template).
 * Required checks and how to run them locally.
-* Review process (who, when, SLA).
+* Review process (who, when, service-level agreement (SLA)).
 * Where to ask questions (channel, office hours).
 
-Keep it under 200 lines.
+Keep it under 200 lines, because a contribution guide that needs its own
+onboarding path has already failed. Once contributors can make changes, the
+people who consume those changes need an equally trustworthy release
+history.
 
 ---
 
 ## CHANGELOG.md
 
-**Verdict:** consumers need a trustworthy release history, so generate
-changelogs from commits instead of maintaining them by hand.
-
-Auto‑generated from Conventional Commits via `release-please`. The repo
-itself doesn't need a hand‑written changelog if releases are tagged
-consistently — the GitHub Releases page *is* your changelog.
-
-For module repos this is non‑negotiable; consumers depend on it.
+Because consumers need a trustworthy release history, generate changelogs
+from commits instead of maintaining them by hand. A repo that uses
+Conventional Commits and tags releases consistently can let
+`release-please` produce the changelog, and in that model the GitHub
+Releases page *is* your changelog. For module repos this is
+non‑negotiable, because consumers depend on it; for the platform team
+itself, the same discipline prepares the next engineer to understand what
+changed before they touch production.
 
 ---
 
 ## Onboarding checklist
 
-**Verdict:** onboarding should be an executable checklist issue a new
-platform engineer can complete in the first week.
-
-A new engineer joining the platform team gets a checklist issue
-auto‑created from a template:
+Release history helps you understand what changed, but a new platform
+engineer also needs an executable path through the repo in their first week.
+Onboarding should therefore be a checklist issue, auto‑created from a
+template, that the new joiner can complete while leaving improvements behind
+for the next person:
 
 ```markdown
 ## Onboarding · @newjoiner
@@ -356,36 +376,41 @@ auto‑created from a template:
 - [ ] Shadow a deploy to prod (assigned: @release-eng)
 ```
 
-The checklist itself is a documented artifact: improvements come from new
-joiners filing PRs against the template.
+The checklist itself is a documented artifact, so improvements should come
+from new joiners filing PRs against the template rather than from private
+notes passed between buddies. After the checklist gets someone through the
+first week, the architecture overview gives them the map they will keep
+returning to.
 
 ---
 
 ## Architecture overview document
 
-**Verdict:** `docs/architecture.md` is the single canonical map of the
-estate, not a slide deck that drifts separately from code.
-
-`docs/architecture.md` — the **single canonical map** of the estate:
+The onboarding checklist points you toward the system, but
+`docs/architecture.md` should be the single canonical map of the estate, not
+a slide deck that drifts separately from code. Keep it focused on the views
+you actually need when making or reviewing a change:
 
 * Diagram of management group hierarchy.
 * Diagram of network topology.
-* Diagram of identity model (Entra tenants, MIs, federated creds).
+* Diagram of identity model (Entra tenants, managed identities (MIs), federated creds).
 * List of subscriptions with owner and purpose.
 * List of regions and their role.
 
-Update on every significant change. CI verifies the diagram source files
-exist; the human verifies they're current — quarterly review on the team's
-calendar.
+Update the overview on every significant change: CI can verify that the
+diagram source files exist, while you verify that they are current during a
+quarterly review on the team's calendar. The overview tells you what the
+estate looks like now; the final documentation habit is to preserve why it
+looks that way.
 
 ---
 
 ## "Why" lives in commit messages and ADRs, not in code comments
 
-**Verdict:** long-lived rationale belongs in commit messages and ADRs; code
-comments should explain only what the code cannot.
-
-Code comments rot. Commit messages and ADRs are immutable. Prefer:
+Because the architecture overview shows the current shape rather than the
+reasoning behind it, long-lived rationale belongs in commit messages and
+ADRs; code comments should explain only what the code cannot. Code comments
+rot, while commit messages and ADRs are immutable, so prefer:
 
 ```hcl
 # ❌ Comment that explains a workaround
@@ -395,7 +420,8 @@ resource "azurerm_role_assignment" "ra" {
 }
 ```
 
-…over a comment, write the **commit message** that adds it explicitly:
+Instead of relying on that comment to survive every future refactor, write
+the **commit message** that adds the workaround explicitly:
 
 ```
 fix(identity): wait 30s after role assignment
@@ -407,16 +433,19 @@ Removable when the upstream issue is closed.
 ```
 
 Comments belong in code only when they explain *what* the code does in a
-way the code cannot. *Why* belongs in commits and ADRs.
-
-The discipline of routing *why* through commits and ADRs rather than code comments is the capstone of a documentation culture. The anti-patterns below catalogue the ways that culture most commonly collapses in practice.
+way the code cannot; *why* belongs in commits and ADRs, where the rationale
+can be reviewed and recovered later. That discipline is the capstone of a
+documentation culture, and the anti-patterns below catalogue the ways that
+culture most commonly collapses in practice.
 
 ---
 
 ## Anti‑patterns
 
-**Verdict:** documentation fails when it leaves the repo, becomes binary,
-stops being generated, or tries to explain implementation instead of intent.
+Once the documentation system stops being repo-native, diffable, generated
+where appropriate, and focused on intent rather than implementation, it
+starts to fail in familiar ways. The specific symptoms vary by team, but
+they usually reduce to one of the patterns below.
 
 * ❌ **Wiki‑only documentation** (Confluence, SharePoint, Loop). Decays
   fast, can't be PR‑reviewed, can't be searched alongside code.

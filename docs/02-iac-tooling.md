@@ -17,35 +17,21 @@
 
 [← 01 Repository topology](01-repository-topology.md) · [Index](../README.md) · [03 Modules & registries →](03-modules-and-registries.md)
 
-Pick one primary IaC engine per ALZ layer, and default to the tool your team can operate confidently under pressure. For Azure-only greenfield estates, **Bicep + Deployment Stacks** is now a first-class default; for brownfield, multi-cloud, or Terraform-skilled teams, **Terraform with AzureRM/AzAPI** remains the safer operational bet. Keep platform and landing-zone code on the same engine unless you have a documented boundary and a specific reason to go bilingual. Do not choose on syntax aesthetics alone — choose on ownership, state tolerance, review quality, and who will maintain the estate at 2 a.m. Read on if you need to justify Bicep versus Terraform, decide whether Pulumi fits your team, or survive a mixed-engine ALZ without drift wars.
+Pick one primary Infrastructure as Code (IaC) engine per Azure Landing Zone (ALZ) layer, and default to the tool your team can operate confidently under pressure. For Azure-only greenfield estates, **Bicep + Deployment Stacks** is now a first-class default; for brownfield, multi-cloud, or Terraform-skilled teams, **Terraform with AzureRM/AzAPI** remains the safer operational bet. Keep platform and landing-zone code on the same engine unless you have a documented boundary and a specific reason to go bilingual. Do not choose on syntax aesthetics alone — choose on ownership, state tolerance, review quality, and who will maintain the estate at 2 a.m. Read on if you need to justify Bicep versus Terraform, decide whether Pulumi fits your team, or survive a mixed-engine ALZ without drift wars.
 
 ---
 
 ## How we got here
 
-**Bottom line:** Bicep and Terraform are both first‑class Azure choices now; the history matters because it explains why state, plan quality, and team familiarity still dominate the decision.
+Bicep and Terraform are both first‑class Azure choices now, and the history matters because it explains why state, plan quality, and team familiarity still dominate the decision. The first wave of "Azure as code" was bash scripts wrapping `azure-cli` (then `az`), often committed alongside README sentences like *"run these in order, don't forget to set the subscription"*. Microsoft launched **Azure Resource Manager (ARM) JSON templates** in 2014 — a genuine declarative model, but the syntax made grown engineers cry. The same year, HashiCorp shipped Terraform; the **AzureRM provider** (2016) gave multi‑cloud teams a sane authoring experience and a real `plan` diff, and quickly became the default in enterprises.
 
-The first wave of "Azure as code" was bash scripts wrapping `azure-cli`
-(then `az`), often committed alongside README sentences like *"run these
-in order, don't forget to set the subscription"*. Microsoft launched **ARM
-JSON templates** in 2014 — a genuine declarative model, but the syntax
-made grown engineers cry. The same year, HashiCorp shipped Terraform; the
-**AzureRM provider** (2016) gave multi‑cloud teams a sane authoring
-experience and a real `plan` diff, and quickly became the default in
-enterprises. Microsoft watched the migration and responded with **Bicep**
-(public preview 2020, GA 2021) — essentially "ARM JSON, but lovable" —
-and then with **Deployment Stacks** (GA 2024) to close the
-state‑management gap that pushed many teams to Terraform in the first
-place. **Pulumi** (2018) bet on real programming languages and found a
-loyal niche but never displaced Terraform for ops‑led teams. Today the
-honest answer to "Bicep or Terraform?" is "whichever your team will still
-be operating well at 2 a.m." — both are first‑class on Azure in 2026.
+That early Terraform lead explains why this decision still cannot be reduced to syntax. Microsoft responded with **Bicep** (public preview 2020, GA 2021) — essentially "ARM JSON, but lovable" — and then with **Deployment Stacks** (GA 2024) to close the state‑management gap that pushed many teams to Terraform in the first place. **Pulumi** (2018) bet on real programming languages and found a loyal niche but never displaced Terraform for ops‑led teams. Today the honest answer to "Bicep or Terraform?" is "whichever your team will still be operating well at 2 a.m." — both are first‑class on Azure in 2026, so the next step is to decide which lifecycle your team can actually own.
 
 ---
 
 ## Decision framework
 
-**Use the engine your operators can own for the full lifecycle; treat mixed engines as an exception that needs an explicit boundary.** Answer these questions in order before debating syntax or ecosystem preferences.
+That history leads to a practical rule: use the engine your operators can own for the full lifecycle, and treat mixed engines as an exception that needs an explicit boundary. Answer these questions in order before debating syntax or ecosystem preferences.
 
 1. **Start with skills already on the team.** The single best predictor of long‑term success is whether the team already operates the tool well; a team fluent in Terraform will ship a better Terraform ALZ than a Bicep one even if Bicep is "theoretically" simpler for Azure‑only.
 
@@ -74,9 +60,7 @@ If the framework still leaves you genuinely split — often because different pl
 
 ## Summary recommendation
 
-**Verdict:** Use Bicep or Terraform for the core ALZ layers, keep the choice consistent within a layer, and reserve ARM JSON and Pulumi for narrow cases.
-
-The short version, before we go deeper into each tool's strengths and failure modes:
+Because the framework is intentionally concise, the chapter needs a summary baseline before it goes deep: use Bicep or Terraform for the core ALZ layers, keep the choice consistent within a layer, and reserve ARM JSON and Pulumi for narrow cases. The short version below sets that baseline before the chapter goes deeper into each tool's strengths and failure modes:
 
 | Layer | Recommended | Acceptable alternative |
 |-------|-------------|------------------------|
@@ -85,9 +69,7 @@ The short version, before we go deeper into each tool's strengths and failure mo
 | Landing zones (workloads) | Same engine as platform | Mixed only with strong justification |
 | Multi‑cloud workloads | **Terraform** or **Pulumi** | — |
 
-**The biggest mistake** is choosing on aesthetics rather than on *who maintains
-what tomorrow*. The right answer is whichever your engineers can operate
-confidently at 2 a.m.
+The table deliberately puts ownership ahead of aesthetics, because the biggest mistake is choosing a tool for how pleasant it looks in a pull request rather than for *who maintains what tomorrow*. The right answer is whichever your engineers can operate confidently at 2 a.m.
 
 > ⚖️ **The debate — is "team skill" really the deciding factor?**
 >
@@ -115,18 +97,17 @@ confidently at 2 a.m.
 > pretending the tools are interchangeable undersells the architectural
 > implications of each choice.
 
+That disagreement is useful rather than academic, because it frames the tool-by-tool analysis that follows: each engine has a different failure mode, and your choice should make that failure mode explicit before you standardise on it.
+
 ---
 
 ## The contenders
 
-**Verdict:** Bicep and Terraform are the real defaults for ALZ; ARM is legacy authoring, Pulumi is niche, and accelerators are scaffolding rather than an engine decision.
+With the recommendation baseline established, the real defaults for ALZ are Bicep and Terraform; ARM is now legacy authoring, Pulumi remains a specialist choice, and accelerators are scaffolding that help you start without deciding the engine for you. Looking at the contenders in that order makes the tradeoffs easier to compare, because the first two are tools you can run an estate on, while the latter cases are constraints around migration, team culture, and bootstrap.
 
 ### Bicep
 
-**Verdict:** Choose Bicep for Azure‑only estates that value native API coverage and no separate state file.
-
-Microsoft's first‑party DSL (domain‑specific language) that transpiles
-(compiles from one high‑level language to another) to ARM JSON.
+Bicep is the strongest fit for Azure‑only estates that value native API coverage and do not want to manage a separate state file. It is Microsoft's first‑party domain-specific language (DSL), and it transpiles (compiles from one high‑level language to another) to ARM JSON.
 
 **Strengths**
 * Native Azure — every resource and API version is available *day one*.
@@ -147,9 +128,7 @@ Microsoft's first‑party DSL (domain‑specific language) that transpiles
 
 ### Terraform (with AzureRM and/or AzAPI providers)
 
-**Verdict:** Choose Terraform when you need multi‑cloud reach, third‑party providers, or the strongest reviewable plan workflow.
-
-The de‑facto multi‑cloud standard.
+Where Bicep optimises for Azure-native simplicity, Terraform is the safer choice when you need multi‑cloud reach, third‑party providers, or the strongest reviewable plan workflow. It remains the de‑facto multi‑cloud standard, which is why many brownfield ALZ estates stay with it even when Bicep would be technically sufficient for the Azure resources alone.
 
 **Strengths**
 * Huge ecosystem — providers for everything (Azure, AWS, GCP, GitHub, Azure
@@ -172,9 +151,7 @@ The de‑facto multi‑cloud standard.
 
 ### ARM (JSON)
 
-**Verdict:** Keep ARM JSON as a transport or migration format, not as hand‑authored ALZ code.
-
-The original.
+ARM JSON is the original Azure declarative format, but in a modern ALZ it should remain a transport or migration format rather than hand‑authored platform code. You still benefit from its universality because Bicep compiles to it and existing deployments can be decompiled from it, yet that does not make it a pleasant or defensible authoring target in 2026.
 
 **Strengths**
 * Universally supported. Always works, no tooling required.
@@ -186,9 +163,7 @@ The original.
 
 ### Pulumi
 
-**Verdict:** Use Pulumi only when your platform team has the software‑engineering discipline to review infrastructure as program code.
-
-IaC in real programming languages (TypeScript, Python, Go, C#).
+Pulumi belongs in the conversation only when your platform team has the software‑engineering discipline to review infrastructure as program code. It gives you IaC in real programming languages such as TypeScript, Python, Go, and C#, which is powerful when the team can keep infrastructure intent visible through ordinary code review and dangerous when the code becomes an application in disguise.
 
 **Strengths**
 * Real language → unit tests with normal frameworks, complex logic, IDE.
@@ -203,14 +178,7 @@ IaC in real programming languages (TypeScript, Python, Go, C#).
 
 ### ALZ accelerators
 
-**Verdict:** Use ALZ accelerators to bootstrap the repo and pipeline, then take ownership of the generated codebase.
-
-These aren't an engine choice — they're a *starting point* that
-bootstraps a production‑grade CI/CD pipeline, state storage, identities,
-and an opinionated folder structure so you don't start from a blank
-repo. Understanding what each accelerator does — and what it *doesn't*
-do — is critical, because the accelerator's output becomes the codebase
-you will maintain for years.
+ALZ accelerators are best treated as a bootstrap mechanism for the repo and pipeline, after which you take ownership of the generated codebase. They are not an engine choice by themselves; instead, they give you a production-grade CI/CD pipeline, state storage or Deployment Stack parameters, managed identities, and an opinionated folder structure so you do not start from a blank repo. Understanding what each accelerator does — and what it *doesn't* do — matters because the accelerator's output becomes the codebase you will maintain for years.
 
 > 📘 **Key terms**
 >
@@ -228,8 +196,7 @@ you will maintain for years.
 
 #### ALZ Bicep accelerator (AVM‑based)
 
-Replaces the classic `Azure/ALZ-Bicep` repo (entering extended support;
-archived February 2027).
+The Bicep accelerator replaces the classic `Azure/ALZ-Bicep` repo, which is entering extended support and will be archived in February 2027. That matters because new Bicep ALZ implementations should start from the AVM-based path rather than from the classic repository.
 
 | Aspect | Detail |
 |--------|--------|
@@ -240,8 +207,7 @@ archived February 2027).
 
 #### ALZ Terraform accelerator (AVM‑based)
 
-Replaces the classic `Azure/terraform-azurerm-caf-enterprise-scale`
-module (entering extended support; archived August 2026).
+The Terraform accelerator follows the same pattern for Terraform estates: it replaces the classic `Azure/terraform-azurerm-caf-enterprise-scale` module, which is entering extended support and will be archived in August 2026. If you are starting today, the AVM-based accelerator is the path you should standardise on.
 
 | Aspect | Detail |
 |--------|--------|
@@ -288,8 +254,7 @@ non‑interactively with a parameter file for repeatable bootstraps.
   launches a guided, interactive questionnaire that walks you through
   every decision. No need to craft a parameter file upfront.
 
-You should **fork or wrap** the accelerator output, not consume it raw — see
-[03 modules & registries](03-modules-and-registries.md).
+Because that output becomes your long-lived platform code, you should **fork or wrap** the accelerator output rather than consume it raw. The module ownership and registry patterns covered in [03 modules & registries](03-modules-and-registries.md) are what let you keep that scaffold maintainable after the bootstrap phase is over.
 
 > 🎥 **From the ALZ Weekly Questions** — [How to use AVM in ALZ, Bicep or Terraform?](https://www.youtube.com/watch?v=ry39tWr_SXc)
 > As of early 2025, AVM is the **only** recommended module set for new ALZ deployments. The Bicep AVM accelerator now uses Deployment Stacks natively, giving Bicep parity with Terraform's state‑based lifecycle management.
@@ -312,7 +277,7 @@ The SMB scenario uses the **same modules and codebase** — only the `.tfvars` /
 
 #### The ALZ library tool (`alzlibtool`)
 
-The ALZ library is a **data layer** separated from business logic — a set of JSON/YAML files that define management‑group archetypes, policy sets, and role assignments. The `alzlibtool` Go module exposes three key commands:
+The accelerator story also depends on the ALZ library, which is a **data layer** separated from business logic — a set of JSON/YAML files that define management‑group archetypes, policy sets, and role assignments. The `alzlibtool` Go module exposes three key commands:
 
 | Command | Purpose |
 |---------|---------|
@@ -327,30 +292,26 @@ The same Go module powers both the Terraform ALZ provider and the Bicep generati
 
 #### Understanding the Bicep file structure
 
-If you open the Bicep accelerator output, you will find multiple `.bicep` / `.bicepparam` file pairs rather than a single monolithic template. This is not accidental — ARM has a **4 MB deployment payload limit**, and a full ALZ deployment exceeds it. The accelerator splits the deployment into separate files for management groups, policies, connectivity, and so on.
-
-A future Bicep feature — **extendable parameters** — will allow a single parameter file to feed multiple Bicep files, reducing duplication. Until then, expect some parameter repetition across files.
+When you move from the library data into the generated Bicep code, the file structure can look more fragmented than you might expect: the accelerator output contains multiple `.bicep` / `.bicepparam` file pairs rather than a single monolithic template. This split is not accidental, because ARM has a **4 MB deployment payload limit**, and a full ALZ deployment exceeds it. The accelerator therefore separates the deployment into files for management groups, policies, connectivity, and other domains, while a future Bicep feature — **extendable parameters** — should eventually allow a single parameter file to feed multiple Bicep files and reduce today's parameter repetition.
 
 > 🎥 **From the ALZ Weekly Questions** — [Understanding ALZ Bicep File Structure](https://www.youtube.com/watch?v=sPA3YWkQ-4s)
 > The Bicep modules can also be consumed **standalone**, without the accelerator. If you only need the connectivity module, reference it directly from the AVM registry.
 
 #### Migrating from CAF‑Enterprise‑Scale
 
-The classic `Azure/terraform-azurerm-caf-enterprise-scale` module enters its archive date on **1 August 2026**. A purpose‑built **Golang state migration tool** helps you move:
+That same archive timeline becomes more concrete if you are already running the classic `Azure/terraform-azurerm-caf-enterprise-scale` module, which reaches its archive date on **1 August 2026**. A purpose‑built **Golang state migration tool** helps you move in two phases:
 
 1. **Phase 1 — Connectivity and management resources** (VNets, firewalls, Log Analytics). The tool reads your existing state, maps resources from CAF‑ES module addresses to AVM module addresses, and generates Terraform `import` blocks.
 2. **Phase 2 — Management groups and policies.** These are trickier because the policy structure changed between CAF‑ES and AVM. The tool produces an issues CSV listing resources that need manual attention.
 
-The migration tool works from **any CAF‑ES version** — you don't need to be on the latest before migrating. However, older versions produce more entries in the issues CSV.
-
-**Practical advice from the ALZ team:** Only import resources you cannot easily delete and recreate (ExpressRoute circuits, firewalls with BGP sessions, DNS zones with live records). For management groups and policies, consider a clean re‑deploy and let Deployment Stacks handle the cutover.
+The migration tool works from **any CAF‑ES version** — you don't need to be on the latest before migrating. However, older versions produce more entries in the issues CSV, which is why the most pragmatic ALZ-team guidance is to import only resources you cannot easily delete and recreate, such as ExpressRoute circuits, firewalls with BGP sessions, or DNS zones with live records. For management groups and policies, a clean re‑deploy is often easier to reason about, especially when Deployment Stacks can handle the cutover.
 
 > 🎥 **From the ALZ Weekly Questions** — [Migrating from CAF-Enterprise-Scale to AVM](https://www.youtube.com/watch?v=DSBWjQlVpSs)
 > The migration tool is also useful outside ALZ — it can recover or restructure any Terraform state file by mapping old module addresses to new ones.
 
 #### Azure Migrate agent for platform landing zones
 
-A preview **Azure Migrate agent** builds on top of the accelerator (it is not a replacement). Available in the Azure portal and VS Code, it lets you describe your desired landing zone in natural language and generates the accelerator configuration:
+After the migration path, the newest accelerator-adjacent feature is the preview **Azure Migrate agent**, which builds on top of the accelerator rather than replacing it. Available in the Azure portal and VS Code, it lets you describe your desired landing zone in natural language and generates the accelerator configuration:
 
 * Grounded on CAF and ALZ documentation — recommendations are not hallucinated.
 * Uses an **MCP server** for customisation — you can extend it with your own policies or naming conventions.
@@ -360,22 +321,22 @@ A preview **Azure Migrate agent** builds on top of the accelerator (it is not a 
 > 🎥 **From the ALZ Weekly Questions** — [Azure Migrate Agent Preview](https://www.youtube.com/watch?v=kFS9lNPuXxM) and [Azure Migrate Agent Deep Dive](https://www.youtube.com/watch?v=ODaFlsja308)
 > The Migrate agent is ideal for initial exploration and configuration generation. For production deployments, always review the generated output before applying.
 
-With all the options on the table, the practical question is which combination actually fits your team and organisation.
+With all the options on the table, the practical question is which combination actually fits your team and organisation. That question becomes sharper when the answer appears to involve more than one engine, because mixed estates need boundaries as much as they need tooling.
 
 ---
 
 ## Mixing engines — when, and how to survive it
 
-**Verdict:** Avoid bilingual estates unless one of a few specific situations applies; if you mix engines, enforce hard ownership boundaries.
+Avoid bilingual estates unless one of a few specific situations applies, and if you do mix engines, enforce hard ownership boundaries from the start. The previous section showed that Bicep and Terraform are both defensible defaults, but that does not mean you should let them manage the same estate casually.
 
-Bilingual estates exist, usually because:
+Bilingual estates usually appear for a practical reason rather than as an architectural ideal:
 
 * Foundation/policy is in **Bicep** (Microsoft accelerator), workloads are in
   **Terraform** because app teams already know it.
 * Platform is in **Terraform** (multi‑cloud DR), but a specific workload uses
   **Bicep** because it needs a brand‑new Azure preview feature.
 
-If you go bilingual, enforce these rules:
+When one of those reasons is strong enough to justify the extra operating model, the rules are simple and non-negotiable:
 
 1. **One engine per resource.** Never let two engines manage the same
    resource — drift wars guaranteed.
@@ -386,14 +347,13 @@ If you go bilingual, enforce these rules:
 4. **Document it loudly** in the top‑level README — every new joiner asks
    "why?".
 
+Those rules are easier to understand when you compare the authoring and deployment workflow side by side, which is why the next section shows the same small resource in both engines without pretending the example alone should decide the estate standard.
+
 ---
 
 ## Example — same resource in both engines
 
-**Verdict:** Use the example as a syntax and workflow comparison, not as a reason to switch engines by itself.
-
-For reference, here is the same simple deployment (a VNet with two subnets) in
-each. Notice the difference in *what you have to think about*.
+Use the example as a syntax and workflow comparison, not as a reason to switch engines by itself. The same simple deployment — a virtual network (VNet) with two subnets — looks familiar in both tools, but the operational questions around state, plan output, and API coverage are different enough that the code sample is only a starting point.
 
 ### Bicep
 
@@ -465,17 +425,13 @@ terraform plan -out=tfplan
 terraform apply tfplan
 ```
 
-The Bicep version is shorter; the Terraform version gives you a richer plan
-diff and works against AWS tomorrow. Neither is "better" — they answer
-different questions.
+The Bicep version is shorter, while the Terraform version gives you a richer plan diff and works against AWS tomorrow. Neither is "better" in isolation; they answer different questions, and the failures in the next section usually happen when teams forget which question they were trying to answer.
 
 ---
 
 ## Anti‑patterns
 
-**Verdict:** The failures to avoid are choosing tools for isolated features, hand‑authoring legacy formats, or letting multiple engines manage the same resources.
-
-Most IaC tool mistakes fall into two camps: picking a tool for the wrong reasons, or letting two engines drift into each other's territory. The recurring offenders:
+The failures to avoid are choosing tools for isolated features, hand‑authoring legacy formats, or letting multiple engines manage the same resources. By this point in the chapter, those mistakes should look familiar: each one breaks the ownership, lifecycle, or boundary rule that made the tool choice defensible in the first place. The recurring offenders:
 
 * ❌ **Authoring ARM JSON by hand.** Use Bicep and `az bicep decompile` to
   migrate any inherited templates.
@@ -496,7 +452,7 @@ Most IaC tool mistakes fall into two camps: picking a tool for the wrong reasons
 
 ---
 
-With the toolchain chosen, the estate has a shape (Chapter 01) and a language (this chapter). The missing link is reuse: how do you avoid writing the same VNet module for each team that needs one, and how do you update it across 40 consumers without a week of coordinated PRs? Chapter 03 covers the module and registry architecture that turns "we have IaC" into "we have a maintainable IaC estate". The take-home from this chapter is simple: pick the engine your team owns confidently, keep it consistent within a layer, and put any deviation in writing.
+With the toolchain chosen, the estate has a shape from [01 repository topology](01-repository-topology.md) and a language from this chapter. The missing link is reuse: how do you avoid writing the same VNet module for each team that needs one, and how do you update it across 40 consumers without a week of coordinated PRs? Chapter 03 covers the module and registry architecture that turns "you have IaC" into "you have a maintainable IaC estate". The take-home from this chapter is simple: pick the engine your team owns confidently, keep it consistent within a layer, and put any deviation in writing.
 
 ## References
 

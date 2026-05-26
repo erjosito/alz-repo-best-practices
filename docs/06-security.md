@@ -26,7 +26,7 @@
 
 [← 05 Authentication](05-authentication.md) · [Index](../README.md) · [07 State management →](07-state-management.md)
 
-**Recommendation in one paragraph.** Secure an ALZ IaC repo by eliminating long‑lived secrets first, then layering branch protection, signed provenance, pinned dependencies, isolated runners, hardened workflows, protected state, and policy gates. Treat every pipeline dependency and runner as a potential compromise path: use OIDC plus Key Vault instead of stored credentials, require CODEOWNERS and status checks before merge, pin every Action, module, and tool by immutable digest, and map regulated or sovereign controls directly to repo and pipeline enforcement. The rest of the chapter explains why these controls matter and how to choose them.
+Secure an Azure Landing Zone (ALZ) Infrastructure as Code (IaC) repo by eliminating long‑lived secrets first, then layering branch protection, signed provenance, pinned dependencies, isolated runners, hardened workflows, protected state, and policy gates. The central tradeoff is that every extra control adds friction, but every missing control leaves a path from a pull request, dependency, or runner into your tenant. Treat every pipeline dependency and Continuous Integration (CI) runner as a potential compromise path: use OpenID Connect (OIDC) plus Azure Key Vault instead of stored credentials, require CODEOWNERS and status checks before merge, pin every Action, module, and tool by immutable digest, and map regulated or sovereign controls directly to repo and pipeline enforcement. That defence‑in‑depth stance is easier to apply once you see how the threat shifted from accidentally committed passwords to compromised build systems, which is where the chapter starts.
 
 ---
 
@@ -35,7 +35,7 @@
 For a long time, "secrets management" in IaC meant *"don't commit them"*
 — enforced by code review, vibes, and luck. Luck ran out repeatedly:
 Uber's AWS keys in a public Git repo (2016), countless `.tfvars` leaks,
-SAS tokens in `terraform.tfstate` files uploaded to misconfigured
+shared access signature (SAS) tokens in `terraform.tfstate` files uploaded to misconfigured
 backends. Push‑side defences emerged around 2018: `truffleHog`,
 `gitleaks`, eventually GitHub's **native secret scanning** and **push
 protection**. Then the threat shifted *upstream*: the SolarWinds attack
@@ -45,7 +45,7 @@ directly with the **`tj-actions/changed-files`** Action compromise of
 March 2025, which exfiltrated secrets from thousands of pipelines that
 had pinned by *tag* rather than by *commit SHA*. The response is the
 defence‑in‑depth model this chapter describes: keep secrets out of code,
-sign what you ship (Sigstore, SLSA attestations), pin every dependency
+sign what you ship (Sigstore, Supply‑chain Levels for Software Artifacts (SLSA) attestations), pin every dependency
 by digest, and assume your CI runner will eventually be compromised.
 
 Those four imperatives become the decision framework below: decide which controls are mandatory, where they run, and who owns exceptions.
@@ -80,10 +80,7 @@ The full analysis below explains the threat paths behind those choices and the c
 
 ## The threat model
 
-**Verdict:** assume attackers will target Git history, contributor accounts, runners, dependencies, state, and drift; every control below should map to one of those paths.
-
-For an IaC repo that controls an enterprise Azure estate, the realistic
-attack vectors are:
+The decision framework only becomes useful when you map each control to a concrete attack path, because attackers will target Git history, contributor accounts, runners, dependencies, state, and drift rather than the tidy categories in your governance model. For an IaC repo that controls an enterprise Azure estate, the realistic attack vectors are:
 
 1. **Leaked secrets** in Git history.
 2. **Compromised contributor account** pushing a malicious change.
@@ -93,15 +90,13 @@ attack vectors are:
 5. **State file leakage** exposing secrets baked into resources.
 6. **Drift / out‑of‑band change** introducing an unreviewed configuration.
 
-The mitigations below address each.
+Because each path uses a different part of the delivery system, the controls below deliberately overlap instead of pretending that one gate can carry the whole security model. The first and most common path is still credential leakage, so the practical work starts with removing secrets rather than merely hiding them better.
 
 ---
 
 ## Secrets in code — eliminate, don't manage
 
-**Verdict:** the only durable pattern is to eliminate long‑lived secrets from repos and pipelines; use OIDC for Azure auth and Key Vault for application secrets.
-
-Combine these:
+The only durable pattern for the credential path is to eliminate long‑lived secrets from repos and pipelines, using OIDC for Azure authentication and Azure Key Vault for application secrets. These controls reinforce each other rather than substituting for each other:
 
 * **OIDC for cloud auth** (see [05 authentication](05-authentication.md)).
 * **Reference Key Vault for application secrets**, never inline them:
@@ -112,15 +107,14 @@ Combine these:
     }
   }
   ```
-* **Generate secrets in‑pipeline** (e.g. random storage SAS) and write them
+* **Generate secrets in‑pipeline** (e.g. random storage shared access signatures (SAS)) and write them
   straight to Key Vault — they never appear in logs or state.
 * **Mark all sensitive Terraform variables `sensitive = true`** so they don't
   print in plan output. (They will still appear in state — see below.)
 
 ### Pre‑commit secret scanning
 
-Run on every developer machine **and** in CI. Two layers catch what one
-misses.
+Secret scanning needs to run on every developer machine **and** in CI, because local hooks catch mistakes before they enter history while the pipeline catches missing or bypassed hooks. Configure both layers with the same allowlist discipline:
 
 ```yaml
 # .pre-commit-config.yaml
@@ -135,27 +129,24 @@ repos:
       - id: detect-secrets
 ```
 
-In CI, run `gitleaks detect` on every PR with `--redact` and fail the build
+In CI, run `gitleaks detect` on every pull request (PR) with `--redact` and fail the build
 on any finding. Maintain an **allowlist file** for false positives, reviewed
 quarterly.
 
-GitHub native:
+GitHub's native controls add the server‑side layer that developer hooks cannot provide:
 
 * **Push protection** for secret scanning — blocks pushes that contain known
   secret patterns. Enable for every repo.
 * **Secret scanning alerts** — also scans dependency files.
 
-If a real secret is committed: **rotate the credential first**, then purge
-history (`git filter-repo` / GitHub support). Order matters; the secret was
-public the moment it was pushed.
+If a real secret is committed, **rotate the credential first**, then purge
+history (`git filter-repo` / GitHub support), because the secret was public the moment it was pushed. Eliminating and scanning for secrets closes the credential path, but it still leaves the path where a bad change is reviewed too casually; that is where branch protection takes over.
 
 ---
 
 ## Branch protection that matters
 
-**Verdict:** require CODEOWNERS review, status checks, signed commits, stale‑review dismissal, linear history, and no force‑push or deletion on every protected branch.
-
-Keeping secrets out of the codebase is necessary but not sufficient. The second line of defence is ensuring that a compromised contributor account still cannot merge a malicious change unilaterally.
+After secrets are removed from the normal delivery path, branch protection has to prevent a compromised contributor account from turning a malicious change into approved code. Require CODEOWNERS review, status checks, signed commits, stale‑review dismissal, linear history, and no force‑push or deletion on every protected branch.
 
 | Setting | Recommended |
 |---------|-------------|
@@ -171,21 +162,18 @@ Keeping secrets out of the codebase is necessary but not sufficient. The second 
 | Restrict who can push | only the deploy bot for `main` |
 | Disallow force push / deletion | ✅ |
 
-GitHub's **rulesets** let you apply these across all repos in an org —
-prefer rulesets over per‑repo branch protection for consistency.
-
-With your own contributors controlled, the remaining attack surface is the code you *don't* own: the Actions, modules, and tools your pipeline fetches from the internet.
+GitHub's **rulesets** let you apply these controls across all repos in an organisation, so prefer rulesets over per‑repo branch protection when you need consistent enforcement. Once your own contributors are constrained, the remaining attack surface is the code you *don't* own: the Actions, modules, and tools your pipeline fetches from the internet.
 
 ---
 
 ## Supply‑chain hygiene
 
-**Verdict:** pin every external dependency by immutable digest or SHA, automate safe updates, and keep evidence of what the pipeline consumed.
+The supply‑chain side of the same argument is that every external dependency should be pinned by immutable digest or SHA, updated through controlled automation, and accompanied by evidence of what the pipeline consumed.
 
 ### Pin everything by digest, not by tag
 
-Tags are mutable. A malicious maintainer can re‑point `v1.0.0` to a
-compromised commit. Pin GitHub Actions by SHA:
+Tags are mutable because a malicious maintainer can re‑point `v1.0.0` to a
+compromised commit, so pin GitHub Actions by SHA:
 
 ```yaml
 # ❌ Bad — tag is mutable
@@ -196,21 +184,20 @@ compromised commit. Pin GitHub Actions by SHA:
 ```
 
 Use **Dependabot** with `dependency-type: version-update:semver-major`
-disabled and `version-update:semver-patch` auto‑merged after CI passes — you
-get security updates without unsupervised major bumps.
-
-For Terraform modules, lock with `.terraform.lock.hcl` (committed) and run
-`terraform init -upgrade` only via PRs.
+disabled and `version-update:semver-patch` auto‑merged after CI passes, so you
+get security updates without unsupervised major bumps. For Terraform modules,
+lock with `.terraform.lock.hcl` (committed) and run `terraform init -upgrade`
+only via PRs.
 
 ### SBOM for IaC?
 
-Less mature than for application code, but worth doing:
+For IaC, Software Bill of Materials (SBOM) generation is less mature than it is for application code, but it is still worth doing because it gives your security tools something concrete to inspect:
 
 * For Terraform, generate a module dependency report
   (`terraform providers schema -json` + custom tooling).
 * For Bicep, `bicep build --stdout` then parse `metadata` blocks plus
   `br:` module references.
-* Store SBOMs as build artifacts; ingest into your SCA tool (GHAS,
+* Store SBOMs as build artifacts; ingest into your Software Composition Analysis (SCA) tool (GitHub Advanced Security (GHAS),
   Snyk, etc.).
 
 > 📘 **Key terms**
@@ -233,9 +220,8 @@ Less mature than for application code, but worth doing:
 
 ### Provenance / SLSA
 
-Use [GitHub's artifact attestations](https://docs.github.com/actions/security-guides/using-artifact-attestations-to-establish-provenance-for-builds)
-to sign your deploy artifacts (compiled Bicep, planned Terraform). The
-deploy job verifies the attestation before applying:
+After you know what the pipeline consumed, provenance proves that the artifact being deployed is the artifact the trusted workflow produced. Use [GitHub's artifact attestations](https://docs.github.com/actions/security-guides/using-artifact-attestations-to-establish-provenance-for-builds)
+to sign your deploy artifacts (compiled Bicep, planned Terraform), and have the deploy job verify the attestation before applying:
 
 ```yaml
 - uses: actions/attest-build-provenance@v1
@@ -247,21 +233,19 @@ deploy job verifies the attestation before applying:
 ```
 
 This makes a "build a malicious artifact and apply it directly" attack
-detectable.
+detectable, and the same provenance story should extend backward from artifacts to the commits and tags that produced them.
 
 ---
 
 ## Signed commits
 
-**Verdict:** require commits and release tags to be signed and verified; use Sigstore / `gitsign` as the default for organisation‑wide enforcement.
-
-Two practical options:
+Because artifact attestations only prove the integrity of build outputs, you should also require commits and release tags to be signed and verified before they become trusted inputs. Sigstore / `gitsign` is the default for organisation‑wide enforcement, although there are two practical options:
 
 * **Sigstore / `gitsign`** — keyless, OIDC‑backed signing. No GPG keys to
   manage; signatures verifiable on GitHub.
 * **GPG / SSH signing** — traditional, requires key distribution.
 
-In CI:
+In CI, verify the signatures on the commits included in each pull request:
 
 ```yaml
 - name: Verify signatures on commits in this PR
@@ -277,9 +261,7 @@ Signatures make unauthorized source changes visible; runner isolation limits wha
 
 ## Securing CI runners
 
-**Verdict:** use GitHub‑hosted larger runners with static IPs for most jobs, and reserve ephemeral isolated self‑hosted runners for production or regulated deployments.
-
-GitHub‑hosted runners are convenient but have caveats for sensitive estates:
+Once source and artifacts are verifiable, the next question is where that trusted code executes. Use GitHub‑hosted larger runners with static IPs for most jobs, and reserve ephemeral isolated self‑hosted runners for production or regulated deployments, because GitHub‑hosted runners are convenient but have caveats for sensitive estates:
 
 | Concern | GitHub‑hosted | Self‑hosted on Azure |
 |---------|---------------|----------------------|
@@ -288,16 +270,14 @@ GitHub‑hosted runners are convenient but have caveats for sensitive estates:
 | Tooling control | Microsoft‑maintained images | You patch (more work, more control) |
 | Compromise blast radius | High (shared infra) | Limited |
 
-**Recommended:** GitHub‑hosted **larger runners with static IPs** for most
-workflows; self‑hosted runners on a **dedicated subscription** for
-foundation/prod deploys. Self‑hosted runners must be:
+For most workflows, GitHub‑hosted **larger runners with static IPs** give you the best balance of operational simplicity and access control; for foundation and production deployments, use self‑hosted runners on a **dedicated subscription** where the network boundary is part of the control. Self‑hosted runners must be:
 
 * Ephemeral (one job per VM, then destroyed). Use the
   [actions-runner-controller](https://github.com/actions/actions-runner-controller)
   on AKS or Azure VM Scale Sets with auto‑scale.
 * In a network‑isolated subscription with egress only to required APIs
-  (ARM, Microsoft Graph, GitHub).
-* Authenticated via a Managed Identity (no PAT for runner registration —
+  (Azure Resource Manager (ARM), Microsoft Graph, GitHub).
+* Authenticated via a Managed Identity (no personal access token (PAT) for runner registration —
   use the GitHub App‑based runner registration).
 
 Runner isolation narrows blast radius; workflow hardening reduces the chance that a job becomes malicious in the first place.
@@ -306,11 +286,7 @@ Runner isolation narrows blast radius; workflow hardening reduces the chance tha
 
 ## Workflow hardening (GitHub Actions)
 
-**Verdict:** treat workflow YAML as production security code: start with least privilege, bound execution, gate environments, and remove checkout credentials.
-
-Securing the runner infrastructure is necessary but not sufficient — the workflow YAML itself is an attack surface. A handful of settings make an outsized difference.
-
-Top hits from `actionlint` + experience:
+Runner isolation reduces blast radius, but the workflow YAML itself is still production security code and should start with least privilege, bounded execution, environment gates, and no checkout credentials left behind. In practice, a handful of settings make an outsized difference:
 
 ```yaml
 permissions:                # ← always start with least privilege
@@ -333,37 +309,29 @@ jobs:
       # ...
 ```
 
-Run `actionlint` and `zizmor` (workflow security scanner) in CI.
-
-Even a hardened, well‑scoped workflow produces an artefact that deserves its own security treatment: the Terraform state file.
+Run `actionlint` and `zizmor` (workflow security scanner) in CI so the workflow definition is checked with the same seriousness as the IaC it runs. Even a hardened, well‑scoped workflow produces an artefact that deserves its own security treatment: the Terraform state file.
 
 ---
 
 ## State file security (Terraform)
 
-**Verdict:** Terraform state files **contain secrets in cleartext** by default, so secure the backend like a Key Vault.
-
-State can include DB passwords, storage keys, and certs. Treat the state backend as you would a Key Vault:
+The first downstream artifact to secure is Terraform state, because state files **contain secrets in cleartext** by default and should be protected like Azure Key Vault. State can include database passwords, storage keys, and certificates, so treat the backend as a privileged system rather than a convenient blob container:
 
 * Backend storage account: **firewall‑restricted**, **private endpoint**,
   **CMK encryption**, **soft‑delete + versioning enabled**, **diagnostic
-  logging to LAW**.
-* Access only via the deploy SPN; humans access via PIM with full audit.
+  logging to Log Analytics Workspace (LAW)**.
+* Access only via the deploy service principal (SPN); humans access via Privileged Identity Management (PIM) with full audit.
 * Use `azurerm` backend with `use_oidc = true` so the runner authenticates
   the same way it authenticates ARM.
 * Never download state to a developer laptop.
 
-Details in [07 state management](07-state-management.md).
-
-Locking down the artefacts your pipeline produces addresses one dimension of compliance. The other is preventing those artefacts from representing non‑compliant configurations in the first place.
+The backend design details are covered in [07 state management](07-state-management.md), but the security point here is simpler: locking down the artefacts your pipeline produces addresses only one dimension of compliance. The other is preventing those artefacts from representing non‑compliant configurations in the first place.
 
 ---
 
 ## Policy / compliance gates
 
-**Verdict:** policy must be a merge‑blocking CI check, not a deployment afterthought.
-
-Treat policy as a **CI check**, not a deployment afterthought:
+Once state is protected, policy gates make sure the secured pipeline is not faithfully deploying something non‑compliant. Treat policy as a **merge‑blocking CI check**, not a deployment afterthought:
 
 * Custom Azure Policy definitions live in version control alongside their
   assignments.
@@ -371,14 +339,13 @@ Treat policy as a **CI check**, not a deployment afterthought:
   the planned changes — block the merge on critical findings.
 * Detail in [09 testing & policy](09-testing-and-policy.md).
 
+These checks reduce the likelihood of a bad change reaching production, but they do not remove the need for a rehearsed response when a credential leak or compromised pull request gets through anyway.
+
 ---
 
 ## Incident playbook (one paragraph)
 
-**Verdict:** assume a credential leak or compromised PR will happen; document the response order before the incident.
-
-When (not if) something happens — leaked credential, compromised PR — the
-response order is:
+Even with policy gates in place, you should assume that a credential leak or compromised pull request will happen and document the response order before the incident. When something happens — leaked credential, compromised PR — the response order is:
 
 1. **Revoke** the credential / app role / token.
 2. **Rotate** anything touched by the compromised identity.
@@ -386,26 +353,21 @@ response order is:
 4. **Re‑deploy** affected resources from a known‑good Git SHA.
 5. **Postmortem**, then update playbook and protections.
 
-Document this in your repo (`docs/runbooks/credential-leak.md`). When you
-need it, you won't have time to invent it.
+Document this in your repo (`docs/runbooks/credential-leak.md`), because when you need it, you won't have time to invent it. For regulated or sovereign estates, the same evidence discipline has to be designed into the landing zone itself rather than added after the first audit request.
 
 ---
 
 ## Sovereign Landing Zone (SLZ) — when compliance demands more
 
-**Verdict:** treat SLZ as a composable compliance overlay on ALZ, and map each sovereignty requirement to policy, evidence, and pipeline controls.
-
-The **Sovereign Landing Zone** is not a separate product — it's a **variant
-layer** that sits on top of the standard ALZ. It adds sovereignty controls
+Where compliance demands sovereignty, treat the Sovereign Landing Zone (SLZ) as a composable overlay on ALZ and map each sovereignty requirement to policy, evidence, and pipeline controls. SLZ is not a separate product; it is a **variant layer** that sits on top of the standard ALZ and adds sovereignty controls
 at three levels:
-
 | Level | Controls |
 |-------|----------|
 | **L1 — Baseline** | Data residency policies, encryption requirements, audit logging to sovereign region. |
 | **L2 — Enhanced** | Confidential computing management groups, restricted service endpoints, HSM‑backed key management. |
 | **L3 — Full sovereign** | Customer‑managed keys everywhere, no data leaving the sovereign region, confidential VMs for management workloads. |
 
-SLZ uses the same ALZ library and modules — the difference is in the
+Because SLZ uses the same ALZ library and modules, the difference is in the
 **archetype overrides** and additional policy assignments. If you later
 need to add sovereign controls to a standard ALZ, you can layer SLZ
 archetypes onto your existing configuration without re‑deploying from
@@ -414,16 +376,13 @@ scratch.
 > 🎥 **From the ALZ Weekly Questions** — [When to use SLZ over ALZ?](https://www.youtube.com/watch?v=r8h7F6IJIqw)
 > Think of SLZ as a composable overlay: ALZ base + SLZ layer + your local customisations. The `alzlibtool` handles the composition.
 
+Those overlay controls govern what can be deployed; the next concern is protecting the baseline resources after subscription vending creates them.
+
 ---
 
 ## Protecting vended resources — defence in depth
 
-**Verdict:** protect platform‑vended resources with overlapping controls — deny assignments, scoped RBAC, and deny policies — because no single guardrail is enough.
-
-When subscription vending creates baseline resources (resource groups,
-networking, diagnostic settings), the platform team needs to prevent
-workload teams from accidentally modifying or deleting them. Three
-complementary mechanisms:
+Whether you deploy standard ALZ or SLZ overlays, platform‑vended resources need overlapping controls because no single guardrail is enough. When subscription vending creates baseline resources such as resource groups, networking, and diagnostic settings, the platform team needs to prevent workload teams from accidentally modifying or deleting them through deny assignments, scoped Role-Based Access Control (RBAC), and deny policies:
 
 1. **Deny assignments via Deployment Stacks** — when the platform team's
    Deployment Stack owns baseline resources with `denyWriteAndDelete`,
@@ -440,11 +399,13 @@ complementary mechanisms:
    policy prevents deletion of resources tagged `managed-by: platform`.
    App teams can manage resources without that tag freely.
 
-These mechanisms layer on top of each other — if any one fails, the others
+These mechanisms layer on top of each other, so if any one fails, the others
 still protect the baseline.
 
 > 🎥 **From the ALZ Weekly Questions** — [Subscription Vending: Repo Structure, Security & Multi-Tenant](https://www.youtube.com/watch?v=11PmT0t6TUI)
 > The combination of deny assignments + scoped RBAC + tag‑based deny policies gives you defence in depth without blocking legitimate workload operations.
+
+The anti‑patterns below are what happens when teams knowingly remove one of those overlapping controls for speed and then forget that the exception exists.
 
 ---
 

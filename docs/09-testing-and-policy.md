@@ -19,7 +19,7 @@
 
 [← 08 CI/CD pipeline patterns](08-cicd-pipelines.md) · [Index](../README.md) · [10 Code quality →](10-code-quality.md)
 
-**Recommendation in one paragraph.** Treat testing as a three-layer quality gate: run static checks on every commit, enforce policy-as-code against the resolved plan before merge, and reserve live integration tests for foundation and reusable modules where fidelity justifies the cost. Use PR-time policy and Azure Policy together as defence in depth; neither replaces the other. Target 100% policy and integration coverage for foundation, roughly 80% unit/plan-policy coverage for shared modules, and plan policy plus selective integration for landing-zone compositions.
+For infrastructure as code (IaC), your testing strategy should behave like a three-layer quality gate: run static checks on every commit, enforce policy-as-code against the resolved plan before merge, and reserve live integration tests for foundation and reusable modules where fidelity justifies the cost. That gate still needs Azure Policy behind it, because pull request (PR)-time checks give developers fast feedback while runtime policy catches portal, command-line, and emergency changes that never passed through the repository. The practical target is 100% policy and integration coverage for foundation, roughly 80% unit and plan-policy coverage for shared modules, and plan policy plus selective integration for landing-zone compositions. The reason this layered model exists is easier to see if you start with how infrastructure testing evolved.
 
 ---
 
@@ -30,26 +30,31 @@ plan` and squinting at the diff*. The brave wrote shell scripts that
 ran `apply`, hit a few endpoints with `curl`, then `destroy`d everything
 — a category formalised in 2018 as **Terratest** (Gruntwork's Go
 library). It worked, but writing infrastructure tests in Go was a steep
-ask for ops teams, and Kitchen‑Terraform never quite caught on. The
-**policy‑as‑code** movement, born from HashiCorp's Sentinel and
-generalised by **Open Policy Agent** (CNCF, 2018), shifted the centre of
-gravity: instead of *running* the deploy and checking the result, *parse
-the plan and reject bad ones* before they touched Azure. Microsoft's
-**PSRule for Azure** (2020) brought hundreds of WAF‑aligned rules out of
-the box, while Bridgecrew's **Checkov** (2019) and Aqua's **tfsec**
-(2019) made multi‑cloud scanning trivial. Native **`terraform test`**
-finally landed in Terraform 1.6 (October 2023), making real integration
-testing accessible to anyone who could write HCL. The result: the modern
-IaC pipeline is a **defence‑in‑depth pyramid** — static linting, plan‑
-time policy, integration tests on modules, and runtime Azure Policy as
-the safety net. The decision framework below turns that history into
-specific tool choices before the layer-by-layer analysis.
+ask for ops teams, and Kitchen‑Terraform never quite caught on.
+
+That friction explains why the **policy‑as‑code** movement changed the
+centre of gravity. HashiCorp's Sentinel and the Cloud Native Computing
+Foundation's **Open Policy Agent (OPA)** made it practical to parse the
+plan and reject bad changes before they touched Azure, rather than
+running the deployment and checking the result afterwards. Microsoft's
+**PSRule for Azure** (2020) then brought hundreds of Azure Well-Architected
+Framework-aligned rules out of the box, while Bridgecrew's **Checkov**
+(2019) and Aqua's **tfsec** (2019) made multi‑cloud scanning trivial.
+Native **`terraform test`** finally landed in Terraform 1.6 (October 2023),
+which made real integration testing accessible to anyone who could write
+HashiCorp Configuration Language (HCL).
+
+The result is the modern IaC pipeline as a **defence‑in‑depth pyramid**:
+static linting, plan‑time policy, integration tests on modules, and
+runtime Azure Policy as the safety net. The decision framework below
+turns that history into specific tool choices before the layer-by-layer
+analysis.
 
 > 📘 **Key terms**
 >
 > **Policy‑as‑code** — expressing governance rules (naming, allowed SKUs, required tags) in version‑controlled code so they are testable, reviewable, and enforceable automatically.
 >
-> **OPA (Open Policy Agent)** — a CNCF‑graduated general‑purpose policy engine. Policies are written in the **Rego** language and evaluated against structured data (e.g. a Terraform plan JSON).
+> **Open Policy Agent (OPA)** — a CNCF‑graduated general‑purpose policy engine. Policies are written in the **Rego** language and evaluated against structured data (e.g. a Terraform plan JSON).
 >
 > **SARIF (Static Analysis Results Interchange Format)** — a JSON‑based standard for reporting findings from static‑analysis tools. GitHub's code scanning UI can ingest SARIF files directly.
 >
@@ -67,7 +72,8 @@ specific tool choices before the layer-by-layer analysis.
 
 ## Decision framework
 
-Pick the test strategy by answering these questions in order. The goal is
+With that history and vocabulary in mind, pick the test strategy by
+answering these questions in order. The goal is
 not to maximise tools; it is to put the cheapest reliable gate in front of
 each class of failure and reserve expensive live tests for the layers where
 they buy real confidence.
@@ -120,9 +126,10 @@ tradeoffs appear — follows below.
 
 ## The testing pyramid for IaC
 
-**Verdict:** Build the IaC gate as a pyramid: static checks everywhere,
-plan-time policy for every PR, and live tests only where the extra cost
-buys confidence that cheaper gates cannot provide.
+The IaC gate works best as a pyramid: static checks run everywhere,
+plan-time policy evaluates every PR, and live tests are reserved for the
+places where the extra cost buys confidence that cheaper gates cannot
+provide.
 
 ```mermaid
 flowchart TB
@@ -140,17 +147,21 @@ flowchart TB
     class L3 l3
 ```
 
-The bottom is cheap and fast; the top is expensive and slow. Push every
-check downward until it loses fidelity, then keep only the remaining
-high-value scenarios at the live-test layer.
+The bottom is cheap and fast, while the top is expensive and slow, so
+you should push every check downward until it loses fidelity and keep
+only the remaining high-value scenarios at the live-test layer. That
+starting point matters because the first layer should feel almost
+invisible to the developer, which is why static checks belong on every
+commit rather than in a weekly quality ritual.
 
 ---
 
 ## Layer 1 — Static checks (every commit)
 
-**Verdict:** Static checks should be mandatory on every developer machine
-and every CI run because they are the fastest way to catch syntax,
-formatting, documentation, and workflow mistakes before review.
+Because static checks sit at the base of the pyramid, they should be
+mandatory on every developer machine and every continuous integration
+(CI) run: they are the fastest way to catch syntax, formatting,
+documentation, and workflow mistakes before review.
 
 ### Terraform
 
@@ -177,17 +188,24 @@ formatting, documentation, and workflow mistakes before review.
 * `markdownlint` for docs.
 * Run them all from a single `pre-commit` config — one file, one mental model.
 
-Static checks catch what the *author* got wrong. The next layer enforces what the *organisation* requires — and that is an entirely different problem.
+These checks catch what the *author* got wrong: a typo, an invalid type,
+a stale generated README, or a workflow file that no longer parses. The
+next layer enforces what the *organisation* requires, which is an entirely
+different problem because it needs the resolved deployment intent rather
+than the raw source file.
 
 ---
 
 ## Layer 2 — Policy‑as‑code on the plan
 
-**Verdict:** Enforce enterprise rules against the resolved plan at PR time
-so non-compliant resources are rejected before anything is created in
-Azure.
+Once the source is clean, the next gate should enforce enterprise rules
+against the resolved plan at PR time so non-compliant resources are
+rejected before anything is created in Azure.
 
 ### What to enforce
+
+The controls in this layer are the ones where the organisation cares
+about the deployed shape, not just whether the code compiles.
 
 * **Naming convention** (resource names match a regex).
 * **Required tags** (`CostCenter`, `Owner`, `DataClassification`).
@@ -203,12 +221,16 @@ Azure.
 
 ### Tools
 
+The tool choice is less important than the consistency of the failure
+model, so pick one primary engine for the PR gate and add specialist
+engines only where they have a distinct job.
+
 | Tool | Best for |
 |------|----------|
 | [**PSRule for Azure**](https://azure.github.io/PSRule.Rules.Azure/) | Bicep + Terraform; ships hundreds of WAF rules out of the box. **Recommended default.** |
 | [**Checkov**](https://www.checkov.io/) | Multi‑IaC (Terraform, Bicep, ARM, K8s); fast onboarding. |
 | [**tfsec**](https://aquasecurity.github.io/tfsec/) | Terraform‑only; merged into Trivy now. |
-| [**Conftest** (OPA/Rego)](https://www.conftest.dev/) | When you need to write *organisation‑specific* rules and you're comfortable in Rego. |
+| [**Conftest** (Open Policy Agent/Rego)](https://www.conftest.dev/) | When you need to write *organisation‑specific* rules and you're comfortable in Rego. |
 | [**Sentinel** (HCP)](https://developer.hashicorp.com/sentinel) | Only if you're on Terraform Cloud/Enterprise. |
 
 ### Pattern: PSRule on Bicep in CI
@@ -231,7 +253,9 @@ Azure.
     sarif_file: psrule.sarif
 ```
 
-PSRule findings show up in the GitHub **Security** tab and on the PR.
+With this pattern, PSRule findings show up in the GitHub **Security** tab
+and on the PR, which keeps governance feedback in the same review surface
+that developers already use.
 
 ### Pattern: Checkov on Terraform plan
 
@@ -244,12 +268,15 @@ PSRule findings show up in the GitHub **Security** tab and on the PR.
     soft_fail: false
 ```
 
-Checking against the **plan JSON** is more accurate than against `.tf` files
-because it captures resolved variables, modules, and dynamic blocks.
+Here again, the resolved plan is the important boundary: checking against
+the **plan JSON** is more accurate than checking `.tf` files because it
+captures resolved variables, modules, and dynamic blocks.
 
 ### Custom Rego example (Conftest)
 
-Forbid public storage accounts in any non‑sandbox env:
+When the built-in rule sets do not express your exact control, a small
+Open Policy Agent rule can carry the organisation-specific intent. This
+example forbids public storage accounts in any non‑sandbox environment:
 
 ```rego
 package main
@@ -271,15 +298,20 @@ is_sandbox(plan) {
 conftest test --policy ./policies tfplan.json
 ```
 
-Plan-time policy stops non-compliant configuration from ever touching Azure. For well-isolated modules, though, you want to go one step further and prove the thing actually deploys and behaves correctly under real conditions.
+Plan-time policy stops non-compliant configuration from ever touching
+Azure, which is already a large improvement over discovering the problem
+after `apply`. For well-isolated modules, though, you sometimes need to
+go one step further and prove the thing actually deploys and behaves
+correctly under real conditions.
 
 ---
 
 ## Layer 3 — Live integration tests
 
-**Verdict:** Deploy, assert, and destroy real infrastructure only for
-foundation and reusable modules by default; add workload integration tests
-when composition risk is higher than the CI cost.
+Because live tests sit at the expensive top of the pyramid, you should
+deploy, assert, and destroy real infrastructure only for foundation and
+reusable modules by default; add workload integration tests when
+composition risk is higher than the CI cost.
 
 ### Terraform
 
@@ -343,17 +375,23 @@ run "creates_hub_vnet" {
 > integration tests on the *composition* are the only way to catch
 > interaction bugs before production.
 
-At this point you have checks at every stage of development. There is still a gap: what prevents someone creating a non-compliant resource directly through the portal? That is where Azure Policy comes in — and it needs to stay in sync with everything above.
+At this point you have checks at every stage of development, from the
+developer workstation to the live module test. There is still a gap,
+however: nothing in the repository prevents someone from creating a
+non-compliant resource directly through the portal or the command line.
+That is where Azure Policy comes in — and it needs to stay in sync with
+everything above.
 
 ---
 
 ## Policy‑as‑code vs Azure Policy
 
-**Verdict:** Treat PR-time policy and Azure Policy as defence in depth from
-a shared control intent; using only one leaves either developer feedback or
-runtime enforcement uncovered.
+The repository gate and Azure Policy should operate as defence in depth
+from a shared control intent, because using only one leaves either
+developer feedback or runtime enforcement uncovered.
 
-There are **two** layers of policy:
+The distinction is easier to reason about if you treat policy as two
+layers with different timing and blast-radius characteristics:
 
 1. **Repo‑side (PR‑time) policy** — Checkov/PSRule/Conftest. Catches
    issues *before* deployment. Fast feedback, free, scoped to what you can
@@ -362,22 +400,22 @@ There are **two** layers of policy:
    group / subscription, enforces continuously, including for resources
    created outside IaC.
 
-You need **both**:
+You need **both** because PR‑time policy gives instant developer feedback
+and prevents the bad PR from merging, while Azure Policy is the
+*insurance* that catches anything the PR check missed, including resources
+created through the portal, CLI, or scripts.
 
-* PR‑time policy gives instant developer feedback and prevents the bad PR
-  from merging.
-* Azure Policy is the *insurance* — it catches anything the PR check
-  missed, and resources created via portal/CLI/script.
-
-The two should be **expressed from the same intent**. A common pattern:
+The two should therefore be **expressed from the same intent**. A common
+pattern looks like this:
 
 * Source of truth: a YAML file describing each control.
 * Generator script produces:
   * A PSRule / Checkov rule for PR time.
   * An Azure Policy `policyDefinition` and assignment for runtime.
 
-That way, drift between "what we lint" and "what we enforce" is impossible
-by construction.
+That way, drift between what CI checks and what Azure enforces is
+impossible by construction, which is the only sustainable way to keep the
+two-layer model trustworthy.
 
 > ⚖️ **The debate — does PR‑time policy violate "Azure as the single control plane"?**
 >
@@ -419,6 +457,9 @@ by construction.
 
 ### Azure Policy lifecycle in this repo
 
+That shared-intent model becomes concrete in the repository when policy
+objects have a predictable lifecycle and a clear promotion path.
+
 * Policy *definitions* in code (Bicep/Terraform).
 * Policy *assignments* in the foundation/policy repo.
 * Initiative/Set definitions for grouped controls.
@@ -427,7 +468,8 @@ by construction.
   destroy.
 * On merge: deploy with `Default` enforcement.
 
-For deny vs audit:
+For the effect itself, treat audit and deny as stages in the control's
+lifecycle rather than as arbitrary preferences.
 
 * **Audit**: rolling out a new control. Run for ≥ 2 weeks, generate the
   exemption list from existing non‑compliant resources, then flip to deny.
@@ -436,9 +478,10 @@ For deny vs audit:
 
 ### Built‑in policy versioning
 
-Azure built‑in policies now carry a **`version` field** in their
+That lifecycle becomes more subtle when you assign Microsoft built-ins,
+because Azure built‑in policies now carry a **`version` field** in their
 metadata (SemVer: `MAJOR.MINOR.PATCH`). Microsoft updates built‑in
-definitions in place — your existing assignments automatically pick up
+definitions in place, so your existing assignments automatically pick up
 the latest version unless you pin to a specific one.
 
 > 🎥 **From the ALZ Weekly Questions** — [How to Stay Current with ALZ Azure Policies](https://www.youtube.com/watch?v=ddcVKS_MKkk)
@@ -447,9 +490,11 @@ the latest version unless you pin to a specific one.
 This creates a **silent drift risk**: a built‑in policy you assigned two
 years ago may have changed its logic, added parameters, or expanded its
 scope. Your compliance posture shifts without a PR, a review, or a test
-in *your* pipeline.
+in *your* pipeline, so the repository needs compensating controls of its
+own.
 
-Mitigations:
+You mitigate that risk by making built-in changes visible before they
+become operational surprises:
 
 * **Snapshot built‑in definitions in your repo.** Export the JSON of
   every built‑in you assign (via `az policy definition show` or the
@@ -468,7 +513,11 @@ Mitigations:
 
 ### Updating ALZ policies — the practical workflow
 
-Whether you use Bicep or Terraform, the ALZ library is the **source of truth** for which policies are assigned and at what version. Updating policies is a routine Day‑2 operation with a well‑defined workflow:
+Those compensating controls only help if policy updates are routine rather
+than exceptional. Whether you use Bicep or Terraform, the ALZ library is
+the **source of truth** for which policies are assigned and at what
+version, so updating policies should be a normal Day‑2 workflow rather
+than a special project.
 
 **Terraform workflow:**
 
@@ -490,21 +539,29 @@ Whether you use Bicep or Terraform, the ALZ library is the **source of truth** f
 
 ### EPAC as an alternative policy management tool
 
-**EPAC (Enterprise Policy as Code)** is a community‑driven tool that provides a structured way to manage Azure Policy assignments at scale, especially across **multi‑tenant** environments. It uses a declarative JSON/CSV format and supports complex policy ecosystems with hundreds of assignments.
+If the ALZ-native workflow is too narrow for your operating model,
+**Enterprise Policy as Code (EPAC)** is the main alternative to evaluate.
+EPAC is a community‑driven tool that provides a structured way to manage
+Azure Policy assignments at scale, especially across **multi‑tenant**
+environments, and it uses a declarative JSON/CSV format for complex
+policy ecosystems with hundreds of assignments.
 
-**When EPAC makes sense:**
+EPAC makes sense when its additional structure solves a real scale problem:
 
 * Large multi‑tenant estates where the ALZ‑native policy management feels limiting.
 * Organisations that want a single policy repository covering multiple ALZ instances.
 * Teams that need advanced features like policy exemption management, effect overrides, and compliance reporting.
 
-**The risks:**
+The same flexibility also introduces risks that you need to own before
+adopting it:
 
 * EPAC is **community‑driven** — it has no Microsoft product lifecycle, no SLA, and no guaranteed long‑term support.
 * If the maintainers step away, you own the codebase. Only adopt EPAC if your team has the skills and willingness to **fork and maintain** it independently.
 * EPAC has its own sequencing requirements that can conflict with how ALZ deploys policies. Integration requires careful planning.
 
-**If you don't use EPAC**, you can disable ALZ‑native policy assignments and manage policies entirely through your own definitions:
+If you do not use EPAC but still want external policy management, you can
+disable ALZ‑native policy assignments and manage policies entirely through
+your own definitions:
 
 * **Bicep:** set the policy module references to `null` or `no` in the configuration.
 * **Terraform:** use an **empty archetype** that deploys management groups without any policy assignments.
@@ -514,7 +571,9 @@ Whether you use Bicep or Terraform, the ALZ library is the **source of truth** f
 
 ### The custom → built‑in lifecycle
 
-A common pattern in maturing ALZ estates:
+As the policy estate matures, custom controls should not become permanent
+by accident. A common lifecycle starts with a custom policy, then forces
+you to revisit it when Microsoft ships an equivalent built-in:
 
 1. **You write a custom policy** because no built‑in exists for a
    specific control (e.g. "deny storage accounts without infrastructure
@@ -525,7 +584,8 @@ A common pattern in maturing ALZ estates:
 3. **You now maintain a custom policy that duplicates a built‑in** —
    accruing maintenance cost and risking divergence.
 
-The responsible lifecycle:
+The responsible lifecycle is to review those custom policies deliberately
+instead of letting duplicate controls accumulate:
 
 * **Inventory custom policies quarterly.** For each, check whether a
   built‑in equivalent now exists. The
@@ -558,14 +618,18 @@ The responsible lifecycle:
 > universally superior — the right balance depends on how much governance
 > automation your team can sustain.
 
+After you have made that lifecycle decision, the remaining question is how
+much coverage each layer deserves.
+
 ---
 
 ## Test coverage targets
 
-**Verdict:** Set coverage targets by layer, not by vanity percentage:
-foundation needs exhaustive policy and integration coverage, modules need
-broad unit and plan-policy coverage, and landing zones need plan-policy
-coverage plus selective live tests.
+Once the pyramid and policy lifecycle are clear, coverage targets should
+be set by layer rather than by vanity percentage: foundation needs
+exhaustive policy and integration coverage, modules need broad unit and
+plan-policy coverage, and landing zones need plan-policy coverage plus
+selective live tests.
 
 | Artifact | Minimum coverage |
 |----------|------------------|
@@ -575,14 +639,19 @@ coverage plus selective live tests.
 | Custom Azure Policy | Compliance test against a fixture resource that should pass + a fixture that should fail |
 | Pipeline templates | Unit test the templates with `act` or by running them against a sample repo |
 
-These targets are intentionally conservative. A 45-minute test suite that engineers skip is worse than no tests at all — so cut scope ruthlessly, parallelise what remains, and treat build time as a metric worth watching.
+These targets are intentionally conservative because a 45-minute test
+suite that engineers skip is worse than no tests at all. Cut scope
+ruthlessly, parallelise what remains, and treat build time as a metric
+worth watching; otherwise the pyramid becomes a theoretical control that
+your teams route around in practice.
 
 ---
 
 ## Anti‑patterns
 
-**Verdict:** The failures to avoid are late feedback, unenforced findings,
-and tests so slow or brittle that engineers route around them.
+The failures to avoid are the same ones the pyramid is designed to
+prevent: late feedback, unenforced findings, and tests so slow or brittle
+that engineers route around them.
 
 * ❌ **All policy lives in Azure Policy.** Developers find out at deploy
   time, after they've waited for a 15‑min `terraform plan` to come back.
@@ -595,7 +664,12 @@ and tests so slow or brittle that engineers route around them.
 * ❌ **Tests that take 45 minutes.** Engineers will avoid them. Parallelise
   or trim coverage.
 
-The discipline of layered validation ultimately comes down to shortening the feedback loop: moving pain from the 4 AM incident to the 30-second pre-commit hook. Once that loop is tight, the question shifts to the *experience* of working inside the repo day-to-day — which is the subject of the next chapter.
+The discipline of layered validation ultimately comes down to shortening
+the feedback loop: moving pain from the 4 AM incident to the 30-second
+pre-commit hook. Once that loop is tight, the question shifts to the
+*experience* of working inside the repo day-to-day — which is the subject
+of the next chapter. The references below provide the tool and policy
+background for the testing model described here.
 
 ---
 

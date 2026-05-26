@@ -21,13 +21,13 @@
 
 [← 03 Modules & registries](03-modules-and-registries.md) · [Index](../README.md) · [05 Authentication →](05-authentication.md)
 
-**Recommendation in one paragraph.** Use **trunk‑based development with folder‑per‑environment configuration** as the default ALZ promotion model: `main` is the source of truth, environment differences live in reviewed parameter files, and promotion is a gated deployment sequence from non‑prod to prod. Branch‑per‑environment is a fallback for teams whose compliance model explicitly requires branch‑level releases; everyone else should avoid the drift, cherry‑pick debt, and unclear rollback story it creates. Infrastructure changes are uniquely dangerous because a broken deploy can leave the network in a half‑configured state that affects every workload above it, so the branching model must minimise blast radius, make rollback obvious, and leave an auditable trail of who approved what.
+For most Azure Landing Zone (ALZ) platform repositories, you should use **trunk‑based development with folder‑per‑environment configuration**: `main` remains the source of truth, environment differences live in reviewed parameter files, and promotion is a gated deployment sequence from non‑prod to prod. Branch‑per‑environment is a fallback for teams whose compliance model explicitly requires branch‑level releases; everyone else should avoid the drift, cherry‑pick debt, and unclear rollback story it creates. This choice matters more for infrastructure than it does for ordinary application code, because a broken deployment can leave the network in a half‑configured state that affects every workload above it, so your branching model has to minimise blast radius, make rollback obvious, and leave an auditable trail of who approved what. The history of how teams arrived at these models explains why the safer default is still not always the first instinct.
 
 ---
 
 ## How we got here
 
-When IaC adoption took off around 2016, most ops teams reached for the
+When Infrastructure as Code (IaC) adoption took off around 2016, most ops teams reached for the
 branching model their app‑dev colleagues were using: **GitFlow**.
 `develop` → `release/*` → `main`, each mapped to an environment, each
 deploy triggered by a merge. It worked — until the first hotfix had to be
@@ -47,7 +47,7 @@ the dominant pattern by the early 2020s.
 >
 > **Trunk‑based development** — a model where all developers commit to a single long‑lived branch (`main`/`trunk`) via short‑lived feature branches, keeping integration continuous and merge conflicts small.
 >
-> **GitOps** — an operational pattern where the desired state of infrastructure is declared in Git and a reconciler (Flux, ArgoCD) or CI/CD pipeline continuously applies it, making Git the single source of truth.
+> **GitOps** — an operational pattern where the desired state of infrastructure is declared in Git and a reconciler (Flux, ArgoCD) or Continuous Integration/Continuous Delivery (CI/CD) pipeline continuously applies it, making Git the single source of truth.
 >
 > **Cherry‑picking** — a Git operation that copies a single commit from one branch to another. Useful for targeted hotfixes, but dangerous at scale because forgetting to cherry‑pick even once creates silent environment drift.
 >
@@ -57,7 +57,7 @@ the dominant pattern by the early 2020s.
 >
 > **Ephemeral environments** — short‑lived, disposable environments (e.g. per‑PR) spun up for testing and torn down automatically when no longer needed.
 
-The branch‑per‑environment model still survives in regulated industries that map approval to branches — usually because the auditors learned Git from a 2015 tutorial. Whichever history your team carries, answer the framework below before choosing mechanics.
+That history explains why the branch‑per‑environment model still survives in regulated industries that map approval to branches, usually because the audit evidence was first designed around Git branch events rather than deployment approvals. Whichever history your team carries, use the framework below to separate a real compliance constraint from inherited habit before choosing mechanics.
 
 ---
 
@@ -72,19 +72,13 @@ Choose the branching and promotion model by answering these questions in order. 
 5. **What PR requirements make `main` safe?** Require review, status checks, CODEOWNERS approval for `envs/prod/` and modules, current branches, signed commits where required, and no force pushes.
 6. **How will drift and exceptions be handled?** Detect drift with scheduled plans, treat unexplained differences as incidents, and use feature flags or parameter gates instead of leaving unfinished work off to the side in long‑lived branches.
 
-The sections below unpack those decisions, starting with the recommended model and then the branch‑per‑environment exception.
+The sections below unpack those decisions, starting with the recommended model and then the branch‑per‑environment exception. From there, the chapter follows the change through environment design, promotion, review, drift response, and configuration reuse.
 
 ---
 
 ## Recommended: trunk‑based + folder‑per‑environment
 
-**Verdict:** use trunk‑based development with folder‑per‑environment configuration as the ALZ default because it keeps one source of truth while making environment differences explicit and reviewable.
-
-The mental model: **`main` is the source of truth for every environment**;
-the difference between environments lives in parameter files, not in
-divergent branches. A change moves through environments by being
-*applied* to each in sequence, gated by approvals — not by being
-*merged* between branches.
+The framework's default landing point is trunk‑based development with folder‑per‑environment configuration, because it gives you one source of truth while still making every environment difference explicit and reviewable. In that model, **`main` is the source of truth for every environment**; the differences between environments live in parameter files, not in divergent branches, and a change moves through environments by being *applied* to each in sequence behind approvals rather than being *merged* from one long‑lived branch to another.
 
 ```mermaid
 flowchart LR
@@ -104,7 +98,7 @@ flowchart LR
     class Revert bad
 ```
 
-The repo layout that supports this:
+In repository terms, that promotion flow works best when the same shape exists under each environment folder. The shape matters because reviewers can compare intent across environments without mentally reconciling different directory structures:
 
 ```
 alz-platform/
@@ -118,21 +112,11 @@ alz-platform/
 └── modules/
 ```
 
-* **One long‑lived branch:** `main`. All work happens on short‑lived feature
-  branches that PR into `main`.
-* **Environments are folders**, not branches.
-* On PR: `plan` / `what‑if` runs for *all affected environments* and is
-  posted as a PR comment.
-* On merge to `main`: pipeline applies to **non‑prod automatically**, then
-  **gates on a manual approval before prod**.
+That layout gives you a few operating rules that are easy to audit. `main` is the only long‑lived branch, all work happens on short‑lived feature branches that open pull requests into `main`, and environments are folders rather than branches. On each pull request, `plan` or `what‑if` runs for all affected environments and is posted as review evidence; after merge, the pipeline applies to **non‑prod automatically** and then **gates on a manual approval before prod**.
 
 ### Why this works
 
-* **No merge hell.** Branch‑per‑environment models inevitably accumulate
-  cherry‑pick debt and "what's actually in prod?" anxiety.
-* **The diff between environments lives in code,** in the `envs/<name>/`
-  parameter files — auditable, reviewable.
-* **Linear history** simplifies rollback: revert the merge commit, apply.
+This model works because it attacks the failure modes that make infrastructure promotion hard. Branch‑per‑environment models inevitably accumulate cherry‑pick debt and "what's actually in prod?" anxiety, while folder‑per‑environment keeps the diff between environments in the `envs/<name>/` parameter files where it is auditable and reviewable. Because history stays linear, rollback is also easier to explain under pressure: revert the merge commit and apply the resulting source.
 
 ### Why people resist it
 
@@ -150,13 +134,13 @@ resource "azurerm_firewall_policy_rule_collection_group" "new_rules" {
 }
 ```
 
-Set `enable_new_rules = false` in `envs/prod/terraform.tfvars` until ready.
+You would keep `enable_new_rules = false` in `envs/prod/terraform.tfvars` until the change is ready, while still allowing the reviewed code to live on `main`. That distinction between hiding code in a branch and disabling behavior through an explicit parameter is what makes the branch‑per‑environment alternative a narrow exception rather than the default.
 
 ---
 
 ## Alternative: branch‑per‑environment ("GitFlow for ops")
 
-**Verdict:** use branch‑per‑environment only when an external compliance or release process requires branch‑level promotion; otherwise it creates avoidable drift and cherry‑pick risk.
+Branch‑per‑environment is still defensible when an external compliance or release process genuinely requires branch‑level promotion, but you should treat it as an exception because it creates avoidable drift and cherry‑pick risk. In this model, each long‑lived branch maps to an environment, pipeline triggers fire on pushes to those branches, and promotion becomes a sequence of merges from `develop` to `release/*` to `main`.
 
 ```
 main      → prod
@@ -165,23 +149,13 @@ develop   → nonprod
 feature/* → ephemeral
 ```
 
-* Pipeline triggers on push to each branch and deploys to the matching
-  environment.
-* Promotion = merging `develop` → `release/*` → `main`.
-
 ### When this works
-* Long release cycles (quarterly).
-* Strict change advisory boards that need a human to "release" each
-  environment.
-* Compliance regimes that map approval to *branch* rather than *deployment*.
+
+This model works best when release cycles are long, usually quarterly, and when strict change advisory boards need a human to "release" each environment through a branch event. It also fits compliance regimes that map approval to *branch* rather than *deployment*, because the audit trail follows Git merges rather than deployment gates.
 
 ### When it doesn't
-* High‑frequency platform changes.
-* Multiple environments per "stage" (e.g. multiple non‑prod tenants).
-* Any team that has ever forgotten to cherry‑pick a hotfix back to `develop`.
 
-**Recommendation:** use it only if your compliance team mandates it. Even
-then, push back hard.
+The same branch mapping becomes fragile as soon as platform changes are frequent, each stage contains multiple tenants, or the team has ever forgotten to cherry‑pick a hotfix back to `develop`. Use it only if your compliance team mandates it, and even then, push back hard enough to confirm that branch‑level evidence is really required rather than merely familiar.
 
 > ⚖️ **The debate — trunk‑based vs branch‑per‑environment**
 >
@@ -210,16 +184,13 @@ then, push back hard.
 > expected. There is no single right answer — the best model depends on
 > your release cadence, audit requirements, and team discipline.
 
-Once the branching model is explicit, define the environment estate it will protect — how many environments exist, what each one is for, and who controls access to it.
+Once the branching model is explicit, define the environment estate it will protect — how many environments exist, what each one is for, and who controls access to it. That definition turns the Git model from an abstract workflow into a set of real blast‑radius boundaries.
 
 ---
 
 ## Environment topology
 
-**Verdict:** keep the durable environment set small, named, and subscription‑separated so each boundary has a clear purpose and blast radius.
-
-Define your environments **explicitly** and document why each exists. A common
-pattern:
+Because the branching model only has meaning when it protects clear deployment targets, keep the durable environment set small, named, and subscription‑separated so each boundary has a clear purpose and blast radius. Define your environments **explicitly** and document why each exists, resisting the temptation to create a new durable environment for every temporary validation need; a common pattern is:
 
 | Environment | Purpose | Subscription model |
 |-------------|---------|--------------------|
@@ -229,7 +200,7 @@ pattern:
 | `prod` | Production | Dedicated subs |
 | `dr` (optional) | Disaster recovery | Mirrors prod, in second region |
 
-Rules:
+Those names only become useful if you back them with hard boundaries and automation, so apply three rules consistently. Without these controls, environment names become labels on the same shared blast radius:
 
 1. **Prod and non‑prod are in different subscriptions** (often different
    management groups). Anything else dilutes the value of the environment
@@ -238,21 +209,17 @@ Rules:
 3. **Sandbox has aggressive lifecycle management.** Auto‑shutdown of VMs,
    nightly resource group cleanup, hard cost caps.
 
-With the environment set defined, the question is how a change moves between them without the canonical trap: "it worked in staging".
+With the environment set defined, the question is how a change moves between those boundaries without falling into the canonical trap: "it worked in staging". Promotion mechanics are where that promise either becomes enforceable or collapses into hope.
 
 ---
 
 ## Promotion mechanics
 
-**Verdict:** promotion must carry the same reviewed source, module versions, and pipeline logic forward so **what you tested is what you ship**.
+To avoid the familiar "it worked in staging" trap, promotion must carry the same reviewed source, module versions, and pipeline logic forward so **what you tested is what you ship**. The details differ between Terraform and Bicep, but the governing idea is the same: you promote reviewed intent, not whatever happens to be current when the next environment deploys.
 
 ### Promote the artifact, not the source
 
-* Run `terraform plan` (or `bicep build`) once, store the artifact (plan file
-  / compiled ARM JSON), and *apply that exact artifact* to each environment.
-* This protects against:
-  * Module version drift between environments (someone bumps a tag mid‑flow).
-  * Time‑of‑check / time‑of‑apply differences in upstream data sources.
+The safest promotion pattern is to run `terraform plan` (or `bicep build`), store the resulting artifact, and apply the reviewed output through the sequence wherever the target environment allows it. That discipline protects you from module version drift between environments when someone bumps a tag mid‑flow, and from time‑of‑check / time‑of‑apply differences in upstream data sources.
 
 In practice:
 
@@ -265,16 +232,13 @@ In practice:
 - terraform apply tfplan-prod
 ```
 
-Note: you **cannot** apply a non‑prod plan to prod (different state files,
-different resources). The "promote the artifact" pattern in IaC means
-*promote the same Git SHA + the same module versions + the same pipeline
-template*, with environment‑specific parameter files.
+However, you **cannot** apply a non‑prod plan to prod because the state files and resources are different. In IaC, the "promote the artifact" pattern therefore means *promote the same Git SHA + the same module versions + the same pipeline template*, with environment‑specific parameter files.
 
 ### Lock module versions per environment
 
 Pin module versions in `envs/<env>/versions.tf` (or a `module-versions.json`
 read by Bicep) so you can promote `nonprod` first, observe, then update `prod`
-to the same version explicitly.
+to the same version explicitly. That makes version promotion a visible code review rather than an implicit side effect of rerunning a pipeline.
 
 ```
 envs/
@@ -284,18 +248,13 @@ envs/
     └── versions.tf       # module "x" { version = "1.4.2" } ← lags
 ```
 
-When non‑prod is happy after a soak period, a PR bumps prod to `1.5.0`. The
-PR diff *is* the promotion.
-
-Of course, that PR diff only means something if the review process attached to it has teeth.
+When non‑prod is happy after a soak period, a PR bumps prod to `1.5.0`, and the PR diff *is* the promotion. Of course, that diff only means something if the review process attached to it has teeth, which is why branch protection and pull request rules are part of the promotion model rather than administrative decoration.
 
 ---
 
 ## PR requirements
 
-**Verdict:** make `main` safe by requiring review, automated evidence, production ownership approval, and branch protection before any environment can change.
-
-Recommended branch protection on `main`:
+Because `main` now controls every environment, you make it safe by requiring review, automated evidence, production ownership approval, and branch protection before any environment can change. The exact rule set varies by repository sensitivity, but a practical baseline for branch protection on `main` is:
 
 * ✅ Require pull request before merging.
 * ✅ Require **at least 1** reviewer (2 for foundation/policy repos).
@@ -308,54 +267,36 @@ Recommended branch protection on `main`:
 * ✅ Dismiss stale reviews on new commits.
 * ✅ Disallow force pushes and branch deletion.
 
+These controls reduce the chance that unreviewed change reaches an environment, but they do not prove the deployed environment still matches the source. Therefore, the operating model also needs an explicit drift loop that keeps Git and Azure from silently diverging after the merge.
+
 ---
 
 ## Drift between environments
 
-**Verdict:** assume drift will happen and design the operating model to detect it quickly, explain it, and treat unexplained differences as incidents.
+Even with strong pull request controls, assume drift will happen and design the operating model to detect it quickly, explain it, and treat unexplained differences as incidents. The simplest visible signal is a scheduled `plan` or `what-if` run in each environment, usually weekly, with any non‑empty result posted to a Teams or Slack channel where it cannot be ignored.
 
-Drift is inevitable. Make it visible:
+For Bicep with Deployment Stacks, set `denySettings: denyDelete` or `denyWriteAndDelete` so out‑of‑band changes are blocked at the Azure Resource Manager (ARM) layer. For Terraform, drift detection runs are your only signal, so invest in them and treat unexplained drift as incident work rather than background noise, as discussed further in [11 manageability](11-manageability.md).
 
-* **Scheduled `plan` (or `what-if`) runs** in each environment, weekly. Any
-  non‑empty plan posts to a Teams/Slack channel.
-* Treat unexplained drift as an incident.
-
-For Bicep with Deployment Stacks, set `denySettings: denyDelete` (or
-`denyWriteAndDelete`) so out‑of‑band changes are blocked at the ARM layer.
-For Terraform, drift detection runs are your only signal — invest in them.
-
-See also [11 manageability](11-manageability.md).
-
-There is, however, a complementary pattern that sidesteps long-lived environment drift entirely by making environments disposable.
+There is, however, a complementary pattern that sidesteps long‑lived environment drift entirely by making environments disposable. It does not replace the durable environment chain, but it gives risky module changes a cheaper place to fail.
 
 ---
 
 ## Ephemeral environments
 
-**Verdict:** use ephemeral environments for PR‑scoped validation of modules and platform slices, not as full disposable copies of the entire ALZ.
-
-For pattern modules and platform components, spin up a **PR‑scoped
-environment** automatically:
+That recurring drift loop protects durable environments, while ephemeral environments give you a different kind of confidence: pull request (PR)-scoped validation for modules and platform slices without pretending that every pull request needs a full disposable copy of the entire ALZ. For pattern modules and platform components, you can spin up a **PR‑scoped environment** automatically, run the tests that need real Azure resources, and then remove the slice before it becomes another environment to govern:
 
 * Workflow on PR creation: `terraform apply` to a uniquely named resource
   group (`pr-<number>-<sha>`).
 * Run integration tests against it.
 * Workflow on PR close: `terraform destroy`.
 
-This is *not* a per‑PR copy of the entire ALZ — that's prohibitively
-expensive. It's a per‑PR slice of the modules being changed.
+This is a per‑PR slice of the modules being changed, not a copy of the whole landing zone, because the latter is usually too expensive and too slow to be useful. Once those short‑lived slices exist beside durable environments, the remaining maintenance problem is how to keep the repeated environment configuration readable without adding unnecessary orchestration tooling.
 
 ---
 
 ## Keeping environment configurations DRY — Terragrunt and alternatives
 
-**Verdict:** start with native `envs/` folders, parameter files, and CI matrices; add Terragrunt, Atmos, or Terramate only when repeated environment boilerplate becomes measurable pain.
-
-Modules solve the DRY problem for *resource definitions*. A separate DRY
-problem lurks in *environment configurations*: the backend blocks, provider
-blocks, and `.tfvars` that differ per environment. When you have five
-environments × eight workloads, even a well‑structured `envs/` folder
-accumulates significant boilerplate.
+Start with native `envs/` folders, parameter files, and Continuous Integration (CI) matrices, and add Terragrunt, Atmos, or Terramate only when repeated environment boilerplate becomes measurable pain. Modules solve the don't repeat yourself (DRY) problem for *resource definitions*, but a separate DRY problem lurks in *environment configurations*: the backend blocks, provider blocks, and `.tfvars` that differ per environment. When you have five environments × eight workloads, even a well‑structured `envs/` folder accumulates significant boilerplate.
 
 > 📘 **Key terms**
 >
@@ -366,6 +307,8 @@ accumulates significant boilerplate.
 > **Terramate** — an orchestration tool that adds code generation, change detection, and execution ordering to Terraform/OpenTofu projects without wrapping the CLI.
 
 ### What Terragrunt solves
+
+Terragrunt earns its keep when the repetition is not just cosmetic but operational: backends, providers, inputs, dependencies, and execution order all have to stay aligned across many stacks. The table below shows the specific places where it replaces hand‑maintained repetition with generated or inherited configuration.
 
 | Problem | Terragrunt approach |
 |---------|---------------------|
@@ -382,9 +325,9 @@ de facto standard for multi‑environment Terraform orchestration from roughly
 ### Why we don't recommend it as the default for ALZ
 
 For a *typical ALZ estate* — three to five environments, a handful of
-workloads, one cloud — the extra layer often costs more than it saves:
+workloads, one cloud — the extra layer often costs more than it saves. The most common costs show up in day‑to‑day debugging and pipeline maintenance:
 
-* **Additional DSL to learn.** Terragrunt's HCL‑dialect (`dependency`,
+* **Additional domain-specific language (DSL) to learn.** Terragrunt's HCL‑dialect (`dependency`,
   `generate`, `include`) is conceptually simple but adds a debugging layer
   between the engineer and Terraform. Error messages refer to generated files,
   not the source.
@@ -403,18 +346,11 @@ workloads, one cloud — the extra layer often costs more than it saves:
 | Execution order | Pipeline DAG stages / explicit `needs:` / `dependsOn:` |
 | For Bicep | Parameter files + Deployment Stacks handle all of the above natively |
 
-Where native tooling still falls short: if your estate has dozens of
-Terraform stacks with complex inter‑dependencies and you want a single
-`run-all plan` command, Terragrunt (or Terramate) genuinely saves time.
+Where native tooling still falls short is orchestration across dozens of Terraform stacks with complex inter‑dependencies, especially when you want a single `run-all plan` command. In that specific shape of estate, Terragrunt or Terramate genuinely saves time, but that threshold is higher than many ALZ teams reach at the start.
 
 ### Recommendation
 
-For most ALZ teams: a well‑structured `envs/` folder, `.tfvars` per
-environment, and a CI matrix build achieve the same DRY outcome with
-**less tooling surface**. Adopt Terragrunt (or Atmos, or Terramate) when
-the environment × workload matrix grows large enough that the native
-approach produces measurable duplication pain — not as a default starting
-point.
+For most ALZ teams, a well‑structured `envs/` folder, `.tfvars` per environment, and a CI matrix build achieve the same DRY outcome with **less tooling surface**. Adopt Terragrunt, Atmos, or Terramate when the environment × workload matrix grows large enough that the native approach produces measurable duplication pain, not as a default starting point.
 
 > ⚖️ **The debate — Terragrunt and DRY orchestrators**
 >
@@ -433,17 +369,19 @@ point.
 > *after* accruing tech debt — the equivalent of saying "don't write
 > tests until you have bugs."
 >
-> **Our position:** For a small‑to‑mid ALZ (fewer than ~15 stacks), the
+> **This guide's position:** For a small‑to‑mid ALZ (fewer than ~15 stacks), the
 > native approach is simpler and has a lower bus‑factor risk. Beyond
 > that threshold the tradeoff tilts, and a DRY orchestrator becomes the
 > pragmatic choice. Reasonable engineers disagree on where the tipping
 > point is.
 
+With the promotion model, environment boundaries, and configuration tooling now tied together, the remaining risk is less subtle: shortcuts that bypass non‑prod validation, shared state isolation, artifact promotion, or independent review. These are the choices that usually feel convenient in the moment and expensive during an incident.
+
 ---
 
 ## Anti‑patterns
 
-**Verdict:** avoid shortcuts that bypass non‑prod validation, shared state isolation, artifact promotion, or independent review.
+Avoid these shortcuts because each one breaks a safety mechanism established earlier in the chapter. If you find yourself making one of them, treat it as a signal that the normal path is too slow or too unclear and fix that path instead.
 
 * ❌ **`main` deploys straight to prod with no non‑prod stop.** The classic
   "we'll add staging later".

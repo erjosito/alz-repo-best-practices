@@ -23,41 +23,40 @@
 
 [← 07 State management](07-state-management.md) · [Index](../README.md) · [09 Testing & policy →](09-testing-and-policy.md)
 
-**Recommendation in one paragraph.** Standardise on a two‑workflow CI/CD
-shape for ALZ IaC: every pull request runs validation and plan, every merge
-to `main` deploys through environment gates, and both workflows delegate the
-real work to reusable pipeline templates. Pick GitHub Actions or Azure DevOps
-Pipelines based on where your code, identity federation, network egress, and
-audit controls already work — both are first‑class Azure deployment platforms
-in 2026. Add path‑based change detection, readable PR plan comments,
-idempotent retry, audited break‑glass workflows, and targeted caching so the
-pipeline catches bad infrastructure changes before they reach production
-instead of becoming a fragile script held together with `sleep 30`.
+For most Azure Landing Zone (ALZ) infrastructure as code (IaC) estates, the safest
+default is a two‑workflow continuous integration and continuous delivery (CI/CD) shape:
+every pull request validates and plans, every merge to `main` deploys through
+environment gates, and both workflows delegate the real work to reusable pipeline
+templates. GitHub Actions and Azure DevOps Pipelines are both first‑class Azure
+deployment platforms in 2026, so you should choose between them by looking at where your
+code, identity federation, network egress, and audit controls already work. Once that
+platform decision is made, path‑based change detection, readable pull request (PR) plan
+comments, idempotent retry, audited break‑glass workflows, and targeted caching are what
+turn the pipeline from a fragile script held together with `sleep 30` into the control
+point that catches bad infrastructure changes before they reach production. The history
+of pipeline automation explains why those guardrails matter, because most of them exist
+to correct mistakes the previous generation of tooling made routine.
 
 ---
 
 ## How we got here
 
-The ALZ pipeline consensus landed on reusable workflows, ephemeral runners,
-and OIDC because every earlier generation of hand‑built deploy jobs drifted,
-leaked state, or hid change history.
-
-Early infrastructure pipelines were **Jenkins freestyle jobs** with the
-Terraform commands pasted into a textbox; the pipeline definition lived
-in the Jenkins UI, not in Git, so reviewing a deploy meant taking a
-screenshot. The "pipeline‑as‑code" movement (Jenkinsfile in 2016, then
-Travis/CircleCI YAML, then Azure Pipelines YAML in 2019, then GitHub
-Actions in late 2019) finally put deploy logic into version control —
-but every repo copy‑pasted the same workflow, and within a year the
-copies had drifted. **Reusable workflows** (GitHub Actions, 2021) and
-**YAML templates with `extends:`** (Azure DevOps) gave central platform
-teams a way to own the pipeline once and have every consumer stay in
-sync. Around the same time, the GitOps community pushed the idea of
-**ephemeral, short‑lived runners** — and after a string of self‑hosted
-runner compromises in 2022–2024, that became the security baseline. The
-patterns in this chapter assume reusable workflows, ephemeral runners,
-and OIDC auth — the consensus shape of an IaC pipeline in 2026. Before
-getting into those patterns, one question needs settling: which platform?
+The ALZ pipeline consensus landed on reusable workflows, ephemeral runners, and OpenID
+Connect (OIDC) because every earlier generation of hand‑built deploy jobs drifted,
+leaked state, or hid change history. Early infrastructure pipelines were **Jenkins
+freestyle jobs** with the Terraform commands pasted into a textbox; the pipeline
+definition lived in the Jenkins UI, not in Git, so reviewing a deploy meant taking a
+screenshot. The "pipeline‑as‑code" movement (Jenkinsfile in 2016, then Travis/CircleCI
+YAML, then Azure Pipelines YAML in 2019, then GitHub Actions in late 2019) finally put
+deploy logic into version control, but every repo copy‑pasted the same workflow, and
+within a year the copies had drifted. **Reusable workflows** (GitHub Actions, 2021) and
+**YAML templates with `extends:`** (Azure DevOps) gave central platform teams a way to
+own the pipeline once and have every consumer stay in sync. Around the same time, the
+GitOps community pushed the idea of **ephemeral, short‑lived runners**, and after a
+string of self‑hosted runner compromises in 2022–2024, that became the security
+baseline. The patterns in this chapter assume reusable workflows, ephemeral runners, and
+OIDC auth as the consensus shape of an IaC pipeline in 2026; before you get into those
+patterns, however, you still need to settle which platform will host them.
 
 > 📘 **Key terms**
 >
@@ -123,17 +122,20 @@ and a gated break‑glass workflow.
    * A gated manual workflow is safer than engineers running Terraform locally
      against production state.
 
-The deep sections below show the implementation details behind each answer.
+Those answers deliberately start with the hosting platform, because the rest of the
+design is easier once you know where the pipeline will run. The comparison starts there,
+then the rest of the chapter assumes the same two‑workflow shape regardless of which
+platform you choose.
 
 ---
 
 ## GitHub Actions vs Azure DevOps Pipelines
 
-**Verdict:** both GitHub Actions and Azure DevOps Pipelines can deploy Azure
-Landing Zones well, so choose the platform your source control, identity
-federation, network egress, and audit controls already make reliable.
-
-Compare the platforms on these criteria:
+Because the decision framework has already narrowed the first choice to platform fit,
+you should treat GitHub Actions and Azure DevOps Pipelines (ADO) as equally capable ways
+to deploy Azure Landing Zones and choose the one your source control, identity
+federation, network egress, and audit controls already make reliable. The comparison is
+less about feature checkboxes than about operational gravity:
 
 | Factor | GitHub Actions | Azure DevOps Pipelines |
 |--------|----------------|------------------------|
@@ -145,26 +147,26 @@ Compare the platforms on these criteria:
 | Cost | Generous free + per‑minute | Per‑user + per‑pipeline minute |
 | Secret store integration | OIDC + Key Vault works well | Variable groups + Key Vault native |
 
-**Recommendation:** wherever the *code* lives. Don't mix unless you have a
-strong reason — the cognitive overhead of two pipeline syntaxes outweighs
-any feature delta.
+In practice, the source control location should win: if the code lives on github.com,
+use GitHub Actions; if it lives on dev.azure.com, use ADO. Mixing both platforms is
+defensible only when a hard compliance, hosting, or migration constraint outweighs the
+cognitive overhead of two pipeline syntaxes.
 
-The patterns below are illustrated with **GitHub Actions**; the same shape
-works in ADO. Whichever you choose, the anatomy is the same — and it fits
-in two files.
+The patterns below are illustrated with **GitHub Actions**, although the same shape
+works in ADO. Whichever platform you choose, the anatomy is the same — and it fits in
+two files, which is why the workflow shape matters more than the logo on the runner.
 
 ---
 
 ## The standard two‑workflow shape
 
-**Verdict:** every IaC repo should expose a PR validation workflow and a
-main‑branch deploy workflow, with environment gates separating non‑prod from
-prod.
-
-Each repo should have exactly two workflows: one that runs on every
-PR to *prove* the change is safe, and one that runs after merge to
-*apply* it. Both delegate the actual work to a shared reusable workflow,
-so the per‑repo files stay short and consistent.
+Once the platform is chosen, every IaC repo should expose the same two entry points: a
+PR validation workflow that proves the change is safe, and a main‑branch deploy workflow
+that applies it through environment gates from non‑prod into prod. That separation keeps
+review and deployment coupled without making them the same event. The PR workflow gives
+reviewers a plan before merge, the deploy workflow applies only after the protected
+branch accepts the change, and both delegate the actual work to a shared reusable
+workflow so the per‑repo files stay short and consistent.
 
 ```mermaid
 flowchart LR
@@ -196,7 +198,9 @@ flowchart LR
     class Templates tmpl
 ```
 
-Plus shared **reusable workflows** in a central repo (e.g. `alz-pipeline-templates`).
+The diagram's central dependency is the shared **reusable workflow** repository, such as
+`alz-pipeline-templates`, because the two local files should describe *when* work runs
+rather than reimplementing *how* Terraform or Bicep runs.
 
 ### `pr.yml` (validation)
 
@@ -295,21 +299,26 @@ jobs:
     secrets: inherit
 ```
 
-The **GitHub Environment `prod`** has:
+With those two files in place, the **GitHub Environment `prod`** becomes the approval
+boundary rather than an ad‑hoc prompt buried inside a shell script. It has:
 
 * Required reviewers (e.g. 2 from the platform team).
 * A **wait timer** (e.g. 10 minutes) so a "ship it" can be aborted.
 * **Deployment branches** restricted to `main`.
-* The **OIDC client‑id `vars`** for the prod SPN.
+* The **OIDC client‑id `vars`** for the prod service principal (SPN).
+
+That boundary is only useful if the jobs behind it are consistent, which is why the next
+layer down is the reusable workflow that every repo calls.
 
 ---
 
 ## Reusable workflow (the actual work)
 
-**Verdict:** put the Terraform or Bicep mechanics in a reusable workflow so
-every repo calls the same tested deploy contract.
-
-The reusable workflow is the single source of truth — every repo calls these.
+Those short repo workflows work because the Terraform or Bicep mechanics live in a
+reusable workflow, where every repo calls the same tested deploy contract instead of
+carrying its own slightly different shell script. The reusable workflow is therefore the
+single source of truth for Azure login, tool setup, plan/apply behavior, and failure
+reporting, and every consumer repo calls it through the same versioned interface.
 
 `alz-pipeline-templates/.github/workflows/tf-apply.yml`:
 
@@ -349,17 +358,20 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-A matching `tf-validate.yml` does `init`, `validate`, `plan`, `tflint`,
-`tfsec`/`checkov`, and posts the plan to the PR.
+A matching `tf-validate.yml` does `init`, `validate`, `plan`, `tflint`, and `tfsec` or
+`checkov`, then posts the plan to the PR. That last step is where the reusable workflow
+becomes visible to reviewers, so the comment needs to be written for human
+decision-making rather than for log archival. The next section turns that output into
+something a reviewer can act on quickly.
 
 ---
 
 ## PR comments that are actually useful
 
-**Verdict:** the plan comment should summarize risk first and hide raw detail
-behind an expandable section.
-
-Plan output dumped raw into a comment is unreadable. Format it:
+Once the reusable workflow produces a plan, the PR comment should summarize risk first
+and hide raw detail behind an expandable section, because reviewers need to answer "what
+will change?" before they decide whether they care about every provider diff line. Raw
+plan output dumped into a comment is unreadable, so format it as a review artifact:
 
 * **Collapsed `<details>` block** with the full plan inside.
 * A **summary table** at the top: `+ N to add · ~ M to change · - K to
@@ -368,19 +380,19 @@ Plan output dumped raw into a comment is unreadable. Format it:
 * For Bicep, post the `what-if` output similarly — use `--result-format` to
   get JSON, then render to markdown.
 
-Use the `hashicorp/setup-terraform` Action's built-in PR comment mechanism,
-or roll your own with `actions/github-script`.
-
-A readable plan comment is half the story. The other half is making sure the pipeline only plans the things that actually changed — which is where the detect script earns its keep.
+You can use the `hashicorp/setup-terraform` Action's built-in PR comment mechanism, or
+you can roll your own with `actions/github-script` when you need more control over
+formatting. Either way, a readable plan comment is only half the story; the other half
+is making sure the pipeline only plans the things that actually changed, which is where
+the detect script earns its keep.
 
 ---
 
 ## Detecting changed environments
 
-**Verdict:** use git diff, path filters, and a matrix so the pipeline plans or
-applies only the environments affected by a change.
-
-The detect script is the bit that makes a layered repo scale:
+The reason the plan comment can stay useful at scale is that the pipeline uses git diff,
+path filters, and a matrix to plan or apply only the environments affected by a change.
+That detect script is the small piece of plumbing that makes a layered repo scale:
 
 ```bash
 #!/usr/bin/env bash
@@ -396,16 +408,18 @@ json=$(printf '%s\n' "$changed_dirs" | jq -R . | jq -s -c .)
 echo "changed=${json:-[]}"
 ```
 
-This produces `["nonprod/connectivity","prod/identity"]` and the matrix
-explodes it into parallel jobs. Touched modules trigger plan runs in
-**every** consumer environment of that module — implement that with a
-module‑to‑consumer map maintained in the repo.
+This produces `["nonprod/connectivity","prod/identity"]`, and the matrix explodes that
+list into parallel jobs. When a shared module changes, the same mechanism should trigger
+plan runs in **every** consumer environment of that module, which means you need a
+module‑to‑consumer map maintained in the repo rather than a hand‑edited exception list
+in the workflow.
 
 ### Scaling to subscription vending — the git‑diff matrix pattern
 
-When your repo vends application landing zone subscriptions (see
-[01 Repository topology — subscription vending](01-repository-topology.md#subscription-vending-repo-structure-at-scale)),
-the same detect‑and‑matrix pattern scales to hundreds of subscriptions:
+The same detect‑and‑matrix pattern becomes even more important when your repo
+vends application landing zone subscriptions, as described in
+[01 Repository topology — subscription vending](01-repository-topology.md#subscription-vending-repo-structure-at-scale),
+because a sequential mega‑apply does not survive hundreds of subscriptions:
 
 1. Each vended subscription has a config file (`.tfvars` or `.bicepparam`)
    in a flat or shallow directory structure (e.g. `subscriptions/app01-prod/`).
@@ -445,22 +459,24 @@ jobs:
       # ... terraform plan/apply scoped to this subscription
 ```
 
-This ensures that adding a new subscription is a **single config file** —
-the pipeline discovers it automatically.
+The result is that adding a new subscription becomes a **single config file**, and the
+pipeline discovers it automatically instead of waiting for someone to remember a second
+YAML edit.
 
 > 🎥 **From the ALZ Weekly Questions** — [Subscription Vending: Repo Structure, Security & Multi-Tenant](https://www.youtube.com/watch?v=11PmT0t6TUI)
 > The git‑diff matrix pattern is the recommended CI/CD approach for subscription vending. It avoids pipeline timeouts and allows 10+ parallel deployments.
 
-Detection gives you scale; the next challenge is keeping a growing fleet of repos from drifting apart.
+Detection gives you scale; the next challenge is keeping a growing fleet of repos from
+drifting apart.
 
 ---
 
 ## Pipeline‑as‑code, but DRY
 
-**Verdict:** centralize pipeline logic and version it, because per‑repo YAML
-copies diverge faster than platform teams can review them.
-
-Patterns to keep many repos consistent:
+Detection gives you scale inside a repo, but consistency across repos comes from
+centralizing pipeline logic and versioning it, because per‑repo YAML copies diverge
+faster than platform teams can review them. Several patterns keep many repos consistent
+without hiding the pipeline from the teams that depend on it:
 
 * **Reusable workflows** (`workflow_call`) — call the same job from many
   repos, versioned by tag (`@v2`).
@@ -472,17 +488,20 @@ Patterns to keep many repos consistent:
 * **Renovate** / Dependabot to bump the pinned `@vX.Y.Z` references in
   every consumer when you ship a new template version.
 
-Keeping workflows DRY solves the consistency problem. The next challenge is reliability: Azure is eventually consistent, and some operations simply fail on first attempt.
+Keeping workflows aligned through don't repeat yourself (DRY) pipeline contracts solves
+the consistency problem. The next challenge is reliability, because Azure is eventually
+consistent and some operations simply fail on the first attempt even when the
+configuration is correct.
 
 ---
 
 ## Long‑running operations & retry
 
-**Verdict:** retry only idempotent, known‑flaky operations and encode
-service‑specific waits where the service knowledge belongs.
-
-Some Azure operations are flaky (Key Vault soft‑delete naming, AAD
-propagation, role assignment lag). Don't paper over with `sleep 30`:
+Because the pipeline now owns repeated execution across many repos, retries should be
+limited to idempotent, known‑flaky operations, and service‑specific waits should live
+where the service knowledge belongs. Some Azure operations are legitimately flaky,
+including Key Vault soft‑delete naming, Microsoft Entra ID propagation, and role
+assignment lag. You should not paper over those behaviors with `sleep 30`:
 
 * In Terraform, use `time_sleep` only as a last resort; prefer
   `null_resource` with `local-exec` that polls the desired state.
@@ -492,14 +511,17 @@ propagation, role assignment lag). Don't paper over with `sleep 30`:
   upstream issue) rather than at the pipeline level — the module is where
   the knowledge belongs.
 
+Even disciplined retry does not cover every incident, so you still need a manual path;
+the difference is that this path should be more controlled than the normal deploy flow,
+not less.
+
 ---
 
 ## Manual operations & the "break glass" pipeline
 
-**Verdict:** provide a manual break‑glass path, but make it more constrained,
-observable, and auditable than the normal deploy path.
-
-You will need it. Build one consciously:
+A manual break‑glass path is necessary for incidents, but it should be more constrained,
+observable, and auditable than the normal deploy path rather than a back door around it.
+You will need this path eventually, so build it consciously:
 
 * `workflow_dispatch` workflow with **inputs**: target environment, target
   workload, action (`plan` / `apply` / `import` / `destroy`).
@@ -507,19 +529,18 @@ You will need it. Build one consciously:
   reviewers).
 * Logs everything; posts a notification to a security channel automatically.
 
-This is far better than engineers running Terraform locally against
-production state.
-
-With the operational edge cases handled, there are some cheap wins on raw speed that cost almost nothing to add.
+That controlled workflow is far better than engineers running Terraform locally against
+production state, because it preserves review, environment protection, and audit history
+even during an incident. With the operational edge cases handled, you can then take a
+few cheap wins on raw speed that cost almost nothing to add.
 
 ---
 
 ## Caching and runtime
 
-**Verdict:** cache only deterministic tool artifacts and spend on larger runners
-when `init` and `plan` time dominates review feedback.
-
-A few cheap wins:
+After the workflow is safe and observable, runtime tuning should stay conservative:
+cache only deterministic tool artifacts, and spend on larger runners when `init` and
+`plan` time dominates review feedback. The cheap wins are deliberately narrow:
 
 * Cache `~/.terraform.d/plugin-cache` and the `.terraform` provider
   directory across runs.
@@ -530,12 +551,18 @@ A few cheap wins:
 * Larger runners pay for themselves on `init` heavy plans (more network
   bandwidth, more CPU for `plan`).
 
+These optimizations should make the same safe pipeline faster, not create a second, less
+governed path for impatient deployments. That distinction is the common thread in the
+anti‑patterns below.
+
 ---
 
 ## Anti‑patterns
 
-**Verdict:** avoid any shortcut that hides deploy risk, forks the shared
-pipeline contract, or turns automation back into a manual handoff.
+The anti‑patterns all share the same failure mode: they hide deploy risk, fork the
+shared pipeline contract, or turn automation back into a manual handoff. They are
+tempting precisely because they feel faster in the moment, but each one removes a
+guardrail the rest of the chapter has been building toward.
 
 * ❌ **Per‑repo, hand‑rolled workflows.** They diverge within a quarter.
   Use reusable workflows.
@@ -550,7 +577,11 @@ pipeline contract, or turns automation back into a manual handoff.
 * ❌ **One pipeline that deploys all environments serially in one run.**
   Use environment gates between non‑prod and prod, not a long script.
 
-The patterns in this chapter give the pipeline its shape. What that pipeline *validates* — the static checks, policy assertions, and integration tests — is the subject of the next chapter. A fast, well-structured pipeline running weak checks still lets bad changes through; what you run inside the workflow matters as much as how the workflow is arranged.
+The patterns in this chapter give the pipeline its shape. What that pipeline *validates*
+— the static checks, policy assertions, and integration tests — is the subject of the
+next chapter. A fast, well-structured pipeline running weak checks still lets bad
+changes through; what you run inside the workflow matters as much as how the workflow is
+arranged.
 
 ---
 
