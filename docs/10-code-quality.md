@@ -3,6 +3,7 @@
 **In this chapter:**
 
 - [How we got here](#how-we-got-here)
+- [Decision framework](#decision-framework)
 - [The "five‑minute onboarding" target](#the-fiveminute-onboarding-target)
 - [Devcontainer / mise / asdf](#devcontainer-mise-asdf)
 - [`Makefile` as a UX layer](#makefile-as-a-ux-layer)
@@ -12,11 +13,6 @@
 - [Editor configuration](#editor-configuration)
 - [Repository templates](#repository-templates)
 - [Issue & PR templates](#issue-pr-templates)
-- [What](#what)
-- [Why](#why)
-- [How (high-level)](#how-high-level)
-- [Affected environments](#affected-environments)
-- [Checklist](#checklist)
 - [Local development against Azure](#local-development-against-azure)
 - [Anti‑patterns](#antipatterns)
 - [References](#references)
@@ -27,7 +23,15 @@
 
 [← 09 Testing & policy](09-testing-and-policy.md) · [Index](../README.md) · [11 Manageability →](11-manageability.md)
 
-Good infrastructure code doesn't just work — it's readable, self-documenting, and easy to contribute to. The best IaC teams treat developer experience as a first-class engineering concern, not an afterthought bolted on when onboarding gets painful. This chapter covers the tools and conventions that collapse the time from `git clone` to productive contribution, and the automation that keeps quality high without relying on humans to remember.
+**Recommendation in one paragraph.** Design the repo so a new engineer can
+clone it, run `make bootstrap`, produce a safe plan, and open a high‑quality
+PR on day one — ideally in five minutes. Standardise on one supported setup
+path: devcontainer for VS Code / Codespaces estates, or `mise` for lighter
+local workflows; wrap commands in `make`; enforce formatting, linting,
+secret scanning, and commit‑message rules with pre‑commit and CI; generate
+module docs instead of hand‑writing them. Developer experience is not polish:
+it is how ALZ teams keep quality high without depending on memory or tribal
+knowledge.
 
 ---
 
@@ -65,9 +69,59 @@ table stakes. The question is what it actually takes to get there.
 >
 > **Codespaces** — GitHub's cloud‑hosted development environment that launches a devcontainer in the browser, eliminating local setup entirely.
 
+---
+
+## Decision framework
+
+Choose the developer‑experience baseline by answering these questions in
+order. The answers decide which setup path is mandatory, which checks run
+locally, and how much automation the repo needs before teams scale it.
+
+1. **What's your "first PR in five minutes" path?**
+   * Document one golden path: `git clone`, `make bootstrap`, `make plan`,
+     open PR.
+   * If the first run cannot be five minutes, publish the real target and
+     keep reducing it; large estates may choose a fifteen‑minute ceiling.
+
+2. **Devcontainer, `mise`, or `asdf` for tool versions?**
+   * VS Code / Codespaces standard → devcontainer.
+   * Mixed editors or no container requirement → `mise` is the recommended
+     lightweight default.
+   * Existing `asdf` estate → keep `asdf`, but do not support both `mise`
+     and `asdf` unless migration is underway.
+
+3. **Which pre‑commit hooks are mandatory?**
+   * At minimum: format, lint, secret scan, and conventional‑commit check.
+   * Run the same hooks in CI so local and pipeline failures match.
+
+4. **Do you auto‑generate module docs?**
+   * Terraform modules → `terraform-docs` with CI drift checks.
+   * Bicep modules → generated documentation from `bicep generate-params`,
+     `PSDocs.Azure`, or metadata parsing.
+
+5. **Do you need Conventional Commits and automated releases?**
+   * Yes if you publish reusable module versions or want Renovate /
+     Dependabot consumers to see meaningful changelogs.
+   * Optional for a private environment‑only repo with no versioned module
+     consumers.
+
+6. **Do you need repository templates or a scaffolding tool?**
+   * Use a GitHub template for repeatable landing‑zone repos.
+   * Use Backstage or `copier` when teams need prompts, ownership metadata,
+     or policy‑driven scaffolding.
+
+The implementation details for those choices follow below.
+
+---
+
 ## The "five‑minute onboarding" target
 
-A new engineer should be able to:
+**Verdict:** optimise for a first meaningful plan within five minutes, and
+document a realistic fifteen‑minute ceiling only when repo size makes five
+minutes impossible.
+
+A new engineer should be able to run the supported path without choosing
+tools or reading tribal notes:
 
 ```bash
 gh repo clone contoso/alz-platform
@@ -94,13 +148,18 @@ clone`. Anything more is friction tax you pay forever.
 > that fails on day one. The five‑minute target remains the *aspiration*;
 > document what your actual number is and actively work to reduce it.
 
-The two ingredients: **devcontainers** and **a `Makefile` (or `Taskfile`)**.
+The practical target has two foundations: **one pinned toolchain** and
+**one command surface** (`Makefile` or `Taskfile`).
 
 ---
 
 ## Devcontainer / mise / asdf
 
-Pin tool versions in the repo. Three viable approaches:
+**Verdict:** pin tool versions in the repo, choosing devcontainer for
+container‑first teams and `mise` as the lightweight default when engineers
+work directly on their machines.
+
+Three viable approaches:
 
 ### Devcontainer (recommended for VS Code / Codespaces shops)
 
@@ -145,11 +204,15 @@ node      = "20.18.0"
 
 Engineers run `mise install` once and have the same versions as CI.
 
-Pinning the tools solves the "which version?" problem. The next step is making those tools easy to invoke without memorising long incantations.
+Pinning the tools solves the "which version?" problem. The next step is
+making those tools easy to invoke without memorising long incantations.
 
 ---
 
 ## `Makefile` as a UX layer
+
+**Verdict:** expose one supported command surface so engineers and CI run
+the same short commands instead of memorising provider‑specific incantations.
 
 Hide the long incantations behind short, memorable commands.
 
@@ -195,6 +258,9 @@ prod is the pipeline.
 
 ## Pre‑commit hooks
 
+**Verdict:** make fast local checks mandatory, then run the same hooks in
+CI so developers see the pipeline verdict before they push.
+
 `pre-commit` is the highest ROI single tool to add to an IaC repo.
 
 ```yaml
@@ -236,13 +302,19 @@ repos:
 ```
 
 Run the **same hooks in CI** — `pre-commit run --all-files` — so what's
-caught locally and what's caught in CI is identical.
+caught locally and what's caught in CI is identical. Use a `commit-msg`
+hook such as `commitlint` / Husky when Conventional Commits are part of
+the release process.
 
-Hooks handle the checks. Documentation is a different discipline — and the kind that degrades fastest when it has to be maintained by hand.
+Hooks handle the checks. Documentation is a different discipline — and the
+kind that degrades fastest when it has to be maintained by hand.
 
 ---
 
 ## Auto‑generated module documentation
+
+**Verdict:** generate module documentation from source metadata and make CI
+fail when the generated README drifts.
 
 Every module's `README.md` is generated from its variables and outputs.
 Engineers never write them by hand; CI verifies they're current.
@@ -276,6 +348,9 @@ parse the `metadata` blocks with a custom script.
 
 ## Conventional commits + automated releases
 
+**Verdict:** use Conventional Commits with automated releases whenever
+modules are versioned and consumed outside the repo.
+
 Force commit messages into a parseable shape:
 
 ```
@@ -297,11 +372,17 @@ Tools:
 The benefit compounds: every consumer's Renovate bot can post a
 "v1.5.0 → v1.6.0" PR with the changelog inline.
 
-Structured commits make the changelog practically free. The remaining pieces of the DX puzzle are smaller but worth locking down: editor settings that prevent trivial formatting noise, and templates that shape what contributions look like before they hit the pipeline.
+Structured commits make the changelog practically free. The remaining
+pieces of the DX puzzle are smaller but worth locking down: editor settings
+that prevent trivial formatting noise, and templates that shape what
+contributions look like before they hit the pipeline.
 
 ---
 
 ## Editor configuration
+
+**Verdict:** commit editor settings so formatting choices are enforced by
+tools, not negotiated in review comments.
 
 ```ini
 # .editorconfig
@@ -332,6 +413,9 @@ own formatters.
 
 ## Repository templates
 
+**Verdict:** use templates or scaffolding when teams create more than one
+landing‑zone repo; otherwise every repo drifts on day one.
+
 For organisations spinning up many landing‑zone repos, a **GitHub
 template repository** + `gh repo create --template` gives every new repo:
 
@@ -343,11 +427,15 @@ template repository** + `gh repo create --template` gives every new repo:
 For more sophisticated scaffolding (with prompts), use **Backstage
 templates** or [`copier`](https://copier.readthedocs.io/).
 
-Templates provision the repo. The next layer shapes how contributions land in it.
+Templates provision the repo. The next layer shapes how contributions land
+in it.
 
 ---
 
 ## Issue & PR templates
+
+**Verdict:** make contribution templates capture the evidence reviewers need
+before the pipeline becomes the first reviewer.
 
 Make the right thing the easy thing.
 
@@ -381,6 +469,9 @@ Make the right thing the easy thing.
 
 ## Local development against Azure
 
+**Verdict:** allow local Azure experimentation only in isolated sandboxes
+with expiry controls, never in shared team environments.
+
 Engineers should be able to safely experiment:
 
 * Each engineer has a personal **sandbox subscription** (or RG) with their
@@ -407,7 +498,13 @@ Engineers should be able to safely experiment:
 * ❌ **Devcontainer that nobody uses.** Make it the *only* supported path
   — including for CI — and it stays maintained.
 
-Developer experience is the invisible multiplier: when a team can move fast and confidently, the quality of every other practice in this book improves. The Makefile runs the tests, the hooks run the linters, the devcontainer keeps the tools consistent, and the PR template makes the right information the default — all of it compounding quietly. The next chapter turns from how you build and ship the platform to how you keep it observable and manageable once it is running in production.
+Developer experience is the invisible multiplier: when a team can move fast
+and confidently, the quality of every other practice in this book improves.
+The Makefile runs the tests, the hooks run the linters, the devcontainer
+keeps the tools consistent, and the PR template makes the right information
+the default — all of it compounding quietly. The next chapter turns from how
+you build and ship the platform to how you keep it observable and manageable
+once it is running in production.
 
 ---
 

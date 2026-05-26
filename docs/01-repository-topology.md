@@ -3,12 +3,11 @@
 **In this chapter:**
 
 - [How we got here](#how-we-got-here)
-- [Why this is the first decision you make](#why-this-is-the-first-decision-you-make)
+- [Decision framework](#decision-framework)
 - [The three layers of an ALZ estate](#the-three-layers-of-an-alz-estate)
 - [Option A — Pure monorepo](#option-a-pure-monorepo)
 - [Option B — Pure multi‑repo](#option-b-pure-multirepo)
 - [Option C — Layered "few‑repo" (recommended default)](#option-c-layered-fewrepo-recommended-default)
-- [Decision framework](#decision-framework)
 - [When ownership boundaries blur — cross‑team resources](#when-ownership-boundaries-blur-crossteam-resources)
 - [Anti‑patterns](#antipatterns)
 - [Reference layouts](#reference-layouts)
@@ -20,7 +19,18 @@
 
 [← Back to index](../README.md) · Next → [02 IaC tooling](02-iac-tooling.md)
 
-Every team starting a Landing Zone eventually faces the same paralysing question: one repository for everything, or one per team? The answer shapes your permissions model, your pipeline architecture, your module versioning strategy, and who gets paged when the foundation breaks at midnight. Get it wrong early and the refactoring tax compounds quietly until one day you are coordinating 60 pull requests to bump a VPN module. This chapter maps out the three realistic topologies, names their failure modes honestly, and gives you a decision framework you can use in your next design review.
+**Recommendation in one paragraph.** For roughly 80 % of enterprise ALZ
+implementations, adopt a layered **"few‑repo"** topology: three to five Git
+repositories aligned to natural ownership boundaries (foundation, platform,
+modules, landing zones, and optionally policies). A pure monorepo is correct
+only for small estates with a single platform team; a pure multi‑repo is
+correct only when you have a self‑service developer portal and the platform
+investment to keep dozens of repos aligned. Treat this as an *ownership*
+question, not a tooling question — repo boundaries should mirror who is on
+call, who approves changes, and who is accountable when something breaks.
+Get it wrong early and you will spend years either drowning in cross‑repo
+PRs or watching a single broken pipeline freeze the entire estate; repo
+topology is one of the costliest things to refactor after the fact.
 
 ---
 
@@ -38,6 +48,9 @@ benefits of monorepos backed by purpose‑built tooling (Bazel, Buck,
 Source Depot). For IaC specifically, the Terraform community discovered
 that **Git submodules don't fix the problem** and that **module registries
 do** (Terraform Registry, then private registries, then OCI). Today most
+mature ALZ implementations live in a *small number* of carefully chosen
+repos — neither a single behemoth nor an unmanageable swarm — and that's
+the option this chapter recommends.
 
 > 📘 **Key terms**
 >
@@ -54,32 +67,59 @@ do** (Terraform Registry, then private registries, then OCI). Today most
 > **Module registries** — hosted catalogues (e.g. Terraform Registry, Azure Container Registry) that distribute versioned IaC modules, replacing error‑prone Git‑source references.
 >
 > **OCI (Open Container Initiative)** — a standard for container image formats and registries, increasingly used to distribute non‑container artefacts such as IaC modules.
-mature ALZ implementations live in a *small number* of carefully chosen
-repos — neither a single behemoth nor an unmanageable swarm — and that's
-the option this chapter recommends.
 
-## Why this is the first decision you make
+---
 
-Repository topology drives almost every other choice in this guide:
-permissions, pipelines, branching, module versioning, and even who is on call
-for what. Get it wrong and you will spend the next two years either drowning
-in cross‑repo PRs or watching a single broken pipeline freeze the entire
-estate.
+## Decision framework
 
-Two extreme positions exist, with a sensible middle ground:
+Pick the topology by answering these questions in order. The first answer
+that points decisively in one direction usually wins; later questions are
+tiebreakers. The three option names below (monorepo, layered few‑repo,
+multi‑repo) are explained in the dedicated sections further down.
 
-| Option | One‑liner |
-|--------|-----------|
-| **Pure monorepo** | One repo holds management groups, policies, platform, and every application landing zone. |
-| **Pure multi‑repo** | Every workload, module, and platform component lives in its own repo. |
-| **Layered "few‑repo" (recommended)** | A small, fixed number of repos aligned to ownership boundaries. |
+1. **How many teams will commit IaC?**
+   * 1 team → [**monorepo**](#option-a-pure-monorepo) is fine.
+   * 2–10 teams → [**layered few‑repo**](#option-c-layered-fewrepo-recommended-default) (recommended default).
+   * 10+ teams → layered few‑repo with one landing‑zone repo per business
+     unit, *or* full [multi‑repo](#option-b-pure-multirepo) if you have a
+     self‑service developer portal.
+
+2. **What is your regulatory posture?**
+   * Auditors require separation of duties between *who changes policy*
+     and *who deploys workloads* → at minimum split foundation/policy from
+     workloads (rules out the pure monorepo).
+
+3. **Do you have a self‑service developer portal?** (Backstage, internal
+   CLI, scaffolding tool)
+   * Yes → multi‑repo becomes viable.
+   * No → stay layered; the discoverability cost of multi‑repo is
+     prohibitive.
+
+4. **How different are the deployment cadences across layers?**
+   * Wildly different (foundation quarterly, workloads daily) → split
+     repos. Putting a quarterly‑changing foundation in the same pipeline
+     trigger as daily workloads is constant friction.
+   * Similar cadence everywhere → topology matters less; choose on
+     team/ownership grounds.
+
+Quick reference of the three options:
+
+| Option | One‑liner | Fits when |
+|--------|-----------|-----------|
+| [**Pure monorepo**](#option-a-pure-monorepo) | One repo for foundation, platform, modules, and every landing zone. | <10 landing zones, one platform team, no separation‑of‑duties requirement. |
+| [**Layered "few‑repo"**](#option-c-layered-fewrepo-recommended-default) *(recommended)* | 3–5 repos aligned to ownership boundaries. | 2–10 teams, mixed cadences, normal enterprise governance. |
+| [**Pure multi‑repo**](#option-b-pure-multirepo) | One repo per workload, per module, per policy set. | 100+ landing zones with a self‑service portal and platform investment to keep them aligned. |
+
+The full analysis — pros, cons, when each option breaks, and the tradeoffs
+of each choice — follows below.
 
 ---
 
 ## The three layers of an ALZ estate
 
-Almost every ALZ implementation has these natural layers. Whether each is a
-folder or a repo is the question:
+Before diving into the options, a shared vocabulary: almost every ALZ
+implementation has the same natural layers. Whether each layer is a
+*folder* or a *repo* is precisely what the topology question decides.
 
 ```mermaid
 flowchart TB
@@ -105,11 +145,17 @@ flowchart TB
 L0 sits to the side: it's not a deployment layer at all but a *library*
 that L2 and L3 consume by version.
 
-With those layers in mind, we can evaluate what each topology looks like in practice — and more importantly, where each one quietly breaks down.
+With the layers named, here is how each topology distributes them — and
+where each one breaks down in practice.
 
 ---
 
 ## Option A — Pure monorepo
+
+**Verdict:** correct only for small estates (<10 landing zones) with a
+single platform team and no separation‑of‑duties requirement. Beyond that
+threshold, the operational tax (coarse permissions, slow pipelines, scary
+shared blast radius) compounds quickly.
 
 **Layout sketch**
 
@@ -160,6 +206,11 @@ For anything larger — or any team that has received a polite request to "pleas
 
 ## Option B — Pure multi‑repo
 
+**Verdict:** correct only at very large scale (100+ landing zones) with a
+self‑service developer portal and dedicated platform investment to keep
+dozens of repos aligned. Without that scaffolding, the coordination cost
+swamps the benefits.
+
 Every workload, every module, every policy set in its own repo.
 
 ### ✅ Pros
@@ -189,6 +240,11 @@ Most organisations don't fit neatly into either extreme, which is precisely why 
 
 ## Option C — Layered "few‑repo" (recommended default)
 
+**Verdict:** the right answer for ~80 % of enterprise ALZ implementations.
+Three to five repos aligned to natural ownership boundaries — coherent
+CODEOWNERS per repo, independent cadences, and a module registry that
+keeps consumers honest.
+
 The pragmatic compromise. **Three to five repos**, aligned to the natural
 ownership boundaries:
 
@@ -217,8 +273,11 @@ ownership boundaries:
 * Need a shared **pipeline template repo** (`alz-pipeline-templates`) or
   reusable workflows so the four repos don't drift in their CI definitions.
 
-### When it works
-**This is the right answer for ~80 % of enterprise ALZ implementations.**
+### Where it still bites
+Cross‑repo refactors that genuinely *do* span layers — bumping a module
+that foundation, platform, and landing zones all consume — still need
+coordination. They are rare by construction (foundation rarely changes),
+but plan for them rather than wishing them away.
 
 > ⚖️ **The debate — monorepo vs few‑repo for IaC**
 >
@@ -251,43 +310,22 @@ ownership boundaries:
 > maturity and regulatory posture than on any inherent technical
 > superiority.
 
-If you're still uncertain which model best fits your situation, the questions below will cut through the ambiguity in short order.
-
----
-
-## Decision framework
-
-Ask these questions in order:
-
-1. **How many teams will commit to IaC?**
-   * 1 team → monorepo is fine.
-   * 2–10 teams → layered few‑repo.
-   * 10+ teams → layered few‑repo with one landing‑zone repo per business unit,
-     or full multi‑repo if you have the platform investment.
-
-2. **What is your regulatory posture?**
-   * If auditors require separation of duties between *who can change policy*
-     and *who can deploy workloads* → at minimum split foundation/policy from
-     workloads.
-
-3. **Do you have a self‑service developer portal?**
-   * Yes (Backstage, internal CLI) → multi‑repo becomes viable.
-   * No → stay layered; the discovery cost of multi‑repo is too high.
-
-4. **What is the deployment frequency of each layer?**
-   * Wildly different cadences → split repos. Putting a quarterly‑changing
-     foundation in the same pipeline trigger as daily workloads is friction.
-
 ---
 
 ## When ownership boundaries blur — cross‑team resources
 
-Option C assumes clean ownership: the platform team owns the platform repo,
-app teams own their landing zones. Reality is messier. Some Azure resources
-sit at the boundary between platform and application, and no repo split
-eliminates the tension entirely.
+**The principle:** when a resource crosses ownership boundaries, separate
+**ownership of intent** (the team that knows *what* the rule needs to do)
+from **ownership of implementation** (the team that owns the deployable
+code), and enforce the boundary with Azure Policy, CODEOWNERS, or both.
+Option C assumes clean ownership — the platform team owns the platform
+repo, app teams own their landing zones — but reality is messier. Some
+Azure resources sit at the boundary between platform and application, and
+no repo split eliminates the tension entirely.
 
-Two recurring examples illustrate the pattern:
+Two recurring examples illustrate the pattern, followed by a decision
+heuristic and the most common variants (DNS, subscription vending,
+multi‑region).
 
 ### NSGs — app‑owned resource, platform‑mandated rules
 

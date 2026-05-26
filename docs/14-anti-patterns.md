@@ -2,6 +2,7 @@
 
 **In this chapter:**
 
+- [Decision framework](#decision-framework)
 - [Repository & code structure](#repository-code-structure)
 - [Tooling & versioning](#tooling-versioning)
 - [Authentication & secrets](#authentication-secrets)
@@ -14,7 +15,6 @@
 - [Naming & tagging](#naming-tagging)
 - [Documentation](#documentation)
 - [Operational](#operational)
-- [A "is your repo healthy?" self‑assessment](#a-is-your-repo-healthy-selfassessment)
 
 
 > A consolidated checklist of mistakes seen in real ALZ implementations.
@@ -22,176 +22,13 @@
 
 [← 13 Documentation](13-documentation.md) · [Index](../README.md) · [References →](references.md)
 
-Thirteen chapters of design decisions, tradeoffs, and recommendations culminate here. This chapter is the consolidation — a catalogue of every significant mistake this guide has warned against, organised by the same categories you have been building through: repository structure, tooling, authentication, pipelines, modules, state, testing, and operations. Think of it as the final exam — not a test of whether you remember the theory, but a structured exercise in honestly assessing how close your current implementation is to the practices this guide advocates. No real-world ALZ implementation scores perfectly on first review; the point is to identify the gaps, prioritise them by risk, and address them through the same PR process as everything else. Read each item as a question: *Is this us?*
+Use this chapter as a checklist for a 30-minute health-check of any existing ALZ repo. Each section below maps to the chapter that explains the recommended pattern. The self-assessment at the bottom of the Decision framework gives you a quick yes/no scorecard. Thirteen chapters of design decisions, tradeoffs, and recommendations culminate here. This chapter is the consolidation — a catalogue of every significant mistake this guide has warned against, organised by the same categories you have been building through: repository structure, tooling, authentication, pipelines, modules, state, testing, and operations. Think of it as the final exam — not a test of whether you remember the theory, but a structured exercise in honestly assessing how close your current implementation is to the practices this guide advocates. No real-world ALZ implementation scores perfectly on first review; the point is to identify the gaps, prioritise them by risk, and address them through the same PR process as everything else. Read each item as a question: *Is this us?*
 
 ---
 
-## Repository & code structure
+## Decision framework
 
-* ❌ **One mega‑repo with one giant Terraform state.** Blast radius =
-  entire estate. Split state by (environment × workload). See
-  [01](01-repository-topology.md), [07](07-state-management.md).
-* ❌ **One repo per resource group.** Granularity gone mad; more pipeline
-  glue than infrastructure.
-* ❌ **Mixing application source code with IaC.** Different cadences,
-  reviewers, and security models. Split.
-* ❌ **Copy‑pasted "modules" folder across many repos.** Promote to a
-  shared module repo with a registry.
-* ❌ **Branch‑per‑environment** (`dev`, `staging`, `main`) with cherry‑
-  picking between them. You will lose a hotfix eventually.
-* ❌ **Tests, modules, and envs all jumbled together.** A consistent
-  layout is a load‑bearing readability feature.
-
-## Tooling & versioning
-
-* ❌ **Large ARM JSON templates without tooling assistance.** Raw ARM JSON
-  is 3–5× more verbose than Bicep or Terraform equivalents, making PR
-  reviews harder, merge conflicts more frequent, and resource references
-  error‑prone (`[resourceId(...)]` chains). The VS Code ARM extension
-  and ARM TTK mitigate some of this, but at scale a higher‑level
-  language (Bicep, Terraform, Pulumi) with modules, loops, and
-  type‑checked references pays for itself quickly. See
-  [02](02-iac-tooling.md).
-* ❌ **Floating versions** (`source = "...?ref=main"`, `version = "latest"`).
-  Reproducibility gone.
-* ❌ **GitHub Actions referenced by mutable tags** (`@v3`). Pin by SHA.
-* ❌ **Two IaC engines managing the same resource.** Drift wars.
-* ❌ **Pulumi adopted by an ops‑background team without a software
-  engineering culture.** Becomes spaghetti.
-* ❌ **Provider versions unlocked.** A provider minor bump can rewrite
-  half your plan unexpectedly.
-
-## Authentication & secrets
-
-* ❌ **Long‑lived service principal client secret in CI.** Use OIDC
-  federation. Always.
-* ❌ **One SPN with Owner @ tenant root for "convenience".** Catastrophic
-  blast radius.
-* ❌ **Federated credential subject `repo:org/repo:*`.** Defeats the
-  purpose of federation.
-* ❌ **Same identity used by humans and pipelines.** Audit becomes
-  impossible.
-* ❌ **Secrets stored in `terraform.tfvars` "just for now".** State files
-  also leak them — see [07](07-state-management.md).
-* ❌ **Adding `--allow-secret` to bypass scanners.** That's how real
-  secrets get through.
-
-## Pipelines & CI/CD
-
-* ❌ **`apply` directly without an explicit `plan` artifact.** What was
-  reviewed is not necessarily what was applied.
-* ❌ **`continue-on-error: true`** to "make the build green" while
-  investigating. Permanent.
-* ❌ **`pull_request_target` with checkout of PR code from forks.**
-  Privilege escalation vector.
-* ❌ **`cancel-in-progress: true` on the deploy concurrency group.** An
-  in‑flight `apply` should never be cancelled.
-* ❌ **One pipeline that deploys all environments serially.** Use proper
-  environment gates between non‑prod and prod.
-* ❌ **Per‑repo bespoke workflows.** Drift within a quarter. Use reusable
-  workflows.
-* ❌ **No drift detection.** You're flying blind.
-
-## Modules & registries
-
-* ❌ **Inlined modules duplicated between landing zones.** "We'll DRY it
-  later" never comes.
-* ❌ **A "kitchen sink" module** with 80 boolean toggles. Split it.
-* ❌ **Calling AVM resource modules directly from landing‑zone code.** No
-  place to enforce enterprise opinions.
-* ❌ **Wrapping AVM with a module that adds nothing.** Just call AVM
-  directly.
-* ❌ **Releasing a major version without a `MIGRATION.md`.** Consumers
-  can't safely upgrade.
-* ❌ **Pinning to a branch name** (`?ref=main`). "Worked yesterday".
-
-## State management
-
-* ❌ **State backend in the same subscription as the resources it
-  manages.** A bad apply could nuke its own state storage. Separate sub.
-* ❌ **State on engineer laptops.** Even in dev. Especially in dev.
-* ❌ **`terraform_remote_state` cross‑references that leak producer
-  secrets to consumers.** Use App Configuration outputs.
-* ❌ **Editing state files by hand.** Even with `jq`.
-* ❌ **Running `force-unlock` reflexively when a lock appears.**
-  Investigate first — the previous run might still be applying.
-* ❌ **Bicep prod deployments without Deployment Stacks.** No drift
-  protection, no managed‑resources tracking.
-
-## Testing & policy
-
-* ❌ **All policy lives at PR time.** Anyone clicking in the portal
-  bypasses your controls.
-* ❌ **All policy lives in Azure Policy.** Developers find out at deploy
-  time after a 15‑min plan. Move what you can earlier.
-* ❌ **`soft_fail: true` on Checkov to "fix later".** Later never comes.
-* ❌ **Integration tests against a shared sub with hard‑coded names.**
-  Two PRs collide → both fail.
-* ❌ **45‑minute test suites.** Engineers will avoid them. Trim or
-  parallelise.
-* ❌ **Custom rules in Rego when a built‑in PSRule rule exists.** Reinvented
-  wheels rust.
-
-## Code quality / DX
-
-* ❌ **README that says "install Terraform 1.x"** without pinning.
-* ❌ **Linters that produce warnings nobody reads.** Either fail the
-  build or remove them.
-* ❌ **Module READMEs written by hand.** Drift in one PR.
-* ❌ **`make apply` that works against prod from a laptop.** Pipeline‑only.
-* ❌ **Devcontainer that nobody uses.** Make it the only path or it dies.
-
-## Manageability / day‑2
-
-* ❌ **CODEOWNERS = `@org/everyone`.** Reviews become rubber stamps.
-* ❌ **Resource locks that the pipeline SPN bypasses without anyone
-  noticing.** Theatre.
-* ❌ **No decommission process.** Subscriptions accumulate forever.
-* ❌ **Runbooks in a wiki nobody can find at 2 a.m.** Keep them with the
-  code.
-* ❌ **Engineers fixing prod by editing in the portal "just this once".**
-  Either it goes through code or your code is no longer authoritative.
-* ❌ **Drift alerts that nobody triages.** Either set an SLA or remove
-  the alert.
-
-## Naming & tagging
-
-* ❌ **Inventing your own resource abbreviations.** Use Microsoft's CAF
-  list.
-* ❌ **Free‑text tags** (`Owner: "John (he sits next to Sara)"`). Tags are
-  data.
-* ❌ **`Environment` values that drift** (`Prod`, `prod`, `Production`).
-  Pick canonical values; deny the rest.
-* ❌ **Required tags enforced only by training docs.** Enforce with
-  policy.
-* ❌ **Naming module added "later".** Names are the hardest thing to
-  refactor.
-
-## Documentation
-
-* ❌ **Wiki‑only documentation** (Confluence, SharePoint). Decays fast,
-  can't be PR‑reviewed.
-* ❌ **Architecture diagrams in proprietary binary formats.** No diff, no
-  merge.
-* ❌ **TODO comments instead of issues.** Go unread.
-* ❌ **One giant `docs/all.md`.** Split.
-* ❌ **Documenting implementation rather than design.** Code is the
-  implementation; docs explain *why*.
-
-## Operational
-
-* ❌ **Pager configured but no on‑call rota.** Alerts go nowhere at 2 a.m.
-* ❌ **No SLO on time‑to‑production for a typical PR.** Improvement is
-  invisible without a baseline.
-* ❌ **No mechanism to retire old subscriptions.** Cost balloons silently.
-* ❌ **No fire drills** for state recovery, credential leak, full‑estate
-  outage. The first time you do it should not be in production.
-
----
-
-Working through this list is most useful not as a one-time audit but as a recurring exercise — quarterly for a mature platform, monthly when the estate is growing quickly. When you find an anti-pattern you are currently living with, resist the temptation to note it privately and move on. Open an issue, assign an owner, and track its remediation alongside everything else the team ships. The self-assessment below gives you a structured framework for that conversation — a score honest enough to be useful and specific enough to drive action.
-
-## A "is your repo healthy?" self‑assessment
+If you can't answer Yes to all of these, you have at least one anti-pattern. Find it below.
 
 Score yourself out of 20:
 
@@ -222,6 +59,195 @@ Score yourself out of 20:
 | 14–17 | Solid — pick the next two and improve. |
 | 10–13 | Functional — significant risk in 1–2 areas. |
 | < 10  | Stop and re‑plan before scaling further. |
+
+Working through this list is most useful not as a one-time audit but as a recurring exercise — quarterly for a mature platform, monthly when the estate is growing quickly. When you find an anti-pattern you are currently living with, resist the temptation to note it privately and move on. Open an issue, assign an owner, and track its remediation alongside everything else the team ships. The self-assessment above gives you a structured framework for that conversation — a score honest enough to be useful and specific enough to drive action.
+
+---
+
+## Repository & code structure
+
+**The trap:** Treating repository boundaries and state layout as convenience choices creates unnecessary blast radius and review friction.
+
+* ❌ **One mega‑repo with one giant Terraform state.** Blast radius =
+  entire estate. Split state by (environment × workload). See
+  [01](01-repository-topology.md), [07](07-state-management.md).
+* ❌ **One repo per resource group.** Granularity gone mad; more pipeline
+  glue than infrastructure.
+* ❌ **Mixing application source code with IaC.** Different cadences,
+  reviewers, and security models. Split.
+* ❌ **Copy‑pasted "modules" folder across many repos.** Promote to a
+  shared module repo with a registry.
+* ❌ **Branch‑per‑environment** (`dev`, `staging`, `main`) with cherry‑
+  picking between them. You will lose a hotfix eventually.
+* ❌ **Tests, modules, and envs all jumbled together.** A consistent
+  layout is a load‑bearing readability feature.
+
+## Tooling & versioning
+
+**Pattern at a glance:** Pin every tool, provider, action, and module source so a reviewed plan can be reproduced exactly.
+
+* ❌ **Large ARM JSON templates without tooling assistance.** Raw ARM JSON
+  is 3–5× more verbose than Bicep or Terraform equivalents, making PR
+  reviews harder, merge conflicts more frequent, and resource references
+  error‑prone (`[resourceId(...)]` chains). The VS Code ARM extension
+  and ARM TTK mitigate some of this, but at scale a higher‑level
+  language (Bicep, Terraform, Pulumi) with modules, loops, and
+  type‑checked references pays for itself quickly. See
+  [02](02-iac-tooling.md).
+* ❌ **Floating versions** (`source = "...?ref=main"`, `version = "latest"`).
+  Reproducibility gone.
+* ❌ **GitHub Actions referenced by mutable tags** (`@v3`). Pin by SHA.
+* ❌ **Two IaC engines managing the same resource.** Drift wars.
+* ❌ **Pulumi adopted by an ops‑background team without a software
+  engineering culture.** Becomes spaghetti.
+* ❌ **Provider versions unlocked.** A provider minor bump can rewrite
+  half your plan unexpectedly.
+
+## Authentication & secrets
+
+**The trap:** Convenience credentials become estate-wide blast radius when pipeline identity, human access, and secrets are not separated.
+
+* ❌ **Long‑lived service principal client secret in CI.** Use OIDC
+  federation. Always.
+* ❌ **One SPN with Owner @ tenant root for "convenience".** Catastrophic
+  blast radius.
+* ❌ **Federated credential subject `repo:org/repo:*`.** Defeats the
+  purpose of federation.
+* ❌ **Same identity used by humans and pipelines.** Audit becomes
+  impossible.
+* ❌ **Secrets stored in `terraform.tfvars` "just for now".** State files
+  also leak them — see [07](07-state-management.md).
+* ❌ **Adding `--allow-secret` to bypass scanners.** That's how real
+  secrets get through.
+
+## Pipelines & CI/CD
+
+**Pattern at a glance:** CI/CD should make reviewed plans, gated applies, reusable workflows, and drift detection the default path.
+
+* ❌ **`apply` directly without an explicit `plan` artifact.** What was
+  reviewed is not necessarily what was applied.
+* ❌ **`continue-on-error: true`** to "make the build green" while
+  investigating. Permanent.
+* ❌ **`pull_request_target` with checkout of PR code from forks.**
+  Privilege escalation vector.
+* ❌ **`cancel-in-progress: true` on the deploy concurrency group.** An
+  in‑flight `apply` should never be cancelled.
+* ❌ **One pipeline that deploys all environments serially.** Use proper
+  environment gates between non‑prod and prod.
+* ❌ **Per‑repo bespoke workflows.** Drift within a quarter. Use reusable
+  workflows.
+* ❌ **No drift detection.** You're flying blind.
+
+## Modules & registries
+
+**The trap:** Duplication, branch pins, and over-flexible wrappers turn modules from leverage into hidden coupling.
+
+* ❌ **Inlined modules duplicated between landing zones.** "We'll DRY it
+  later" never comes.
+* ❌ **A "kitchen sink" module** with 80 boolean toggles. Split it.
+* ❌ **Calling AVM resource modules directly from landing‑zone code.** No
+  place to enforce enterprise opinions.
+* ❌ **Wrapping AVM with a module that adds nothing.** Just call AVM
+  directly.
+* ❌ **Releasing a major version without a `MIGRATION.md`.** Consumers
+  can't safely upgrade.
+* ❌ **Pinning to a branch name** (`?ref=main`). "Worked yesterday".
+
+## State management
+
+**Pattern at a glance:** Treat state as a protected production dependency: isolated, remote, locked, recoverable, and never hand-edited.
+
+* ❌ **State backend in the same subscription as the resources it
+  manages.** A bad apply could nuke its own state storage. Separate sub.
+* ❌ **State on engineer laptops.** Even in dev. Especially in dev.
+* ❌ **`terraform_remote_state` cross‑references that leak producer
+  secrets to consumers.** Use App Configuration outputs.
+* ❌ **Editing state files by hand.** Even with `jq`.
+* ❌ **Running `force-unlock` reflexively when a lock appears.**
+  Investigate first — the previous run might still be applying.
+* ❌ **Bicep prod deployments without Deployment Stacks.** No drift
+  protection, no managed‑resources tracking.
+
+## Testing & policy
+
+**The trap:** Controls that run too late, too slowly, or only in one layer train teams to bypass them.
+
+* ❌ **All policy lives at PR time.** Anyone clicking in the portal
+  bypasses your controls.
+* ❌ **All policy lives in Azure Policy.** Developers find out at deploy
+  time after a 15‑min plan. Move what you can earlier.
+* ❌ **`soft_fail: true` on Checkov to "fix later".** Later never comes.
+* ❌ **Integration tests against a shared sub with hard‑coded names.**
+  Two PRs collide → both fail.
+* ❌ **45‑minute test suites.** Engineers will avoid them. Trim or
+  parallelise.
+* ❌ **Custom rules in Rego when a built‑in PSRule rule exists.** Reinvented
+  wheels rust.
+
+## Code quality / DX
+
+**Pattern at a glance:** Developer experience guardrails should be pinned, automated, and hard to ignore.
+
+* ❌ **README that says "install Terraform 1.x"** without pinning.
+* ❌ **Linters that produce warnings nobody reads.** Either fail the
+  build or remove them.
+* ❌ **Module READMEs written by hand.** Drift in one PR.
+* ❌ **`make apply` that works against prod from a laptop.** Pipeline‑only.
+* ❌ **Devcontainer that nobody uses.** Make it the only path or it dies.
+
+## Manageability / day‑2
+
+**The trap:** Day-2 ownership fails when reviews, runbooks, locks, drift, and decommissioning have no accountable owner.
+
+* ❌ **CODEOWNERS = `@org/everyone`.** Reviews become rubber stamps.
+* ❌ **Resource locks that the pipeline SPN bypasses without anyone
+  noticing.** Theatre.
+* ❌ **No decommission process.** Subscriptions accumulate forever.
+* ❌ **Runbooks in a wiki nobody can find at 2 a.m.** Keep them with the
+  code.
+* ❌ **Engineers fixing prod by editing in the portal "just this once".**
+  Either it goes through code or your code is no longer authoritative.
+* ❌ **Drift alerts that nobody triages.** Either set an SLA or remove
+  the alert.
+
+## Naming & tagging
+
+**Pattern at a glance:** Names and tags are governed data, not free text or conventions that live only in training.
+
+* ❌ **Inventing your own resource abbreviations.** Use Microsoft's CAF
+  list.
+* ❌ **Free‑text tags** (`Owner: "John (he sits next to Sara)"`). Tags are
+  data.
+* ❌ **`Environment` values that drift** (`Prod`, `prod`, `Production`).
+  Pick canonical values; deny the rest.
+* ❌ **Required tags enforced only by training docs.** Enforce with
+  policy.
+* ❌ **Naming module added "later".** Names are the hardest thing to
+  refactor.
+
+## Documentation
+
+**The trap:** Documentation that cannot be reviewed, diffed, generated, or tied to design decisions decays immediately.
+
+* ❌ **Wiki‑only documentation** (Confluence, SharePoint). Decays fast,
+  can't be PR‑reviewed.
+* ❌ **Architecture diagrams in proprietary binary formats.** No diff, no
+  merge.
+* ❌ **TODO comments instead of issues.** Go unread.
+* ❌ **One giant `docs/all.md`.** Split.
+* ❌ **Documenting implementation rather than design.** Code is the
+  implementation; docs explain *why*.
+
+## Operational
+
+**Pattern at a glance:** Operational readiness requires named responders, measured flow, retirement paths, and practiced failure drills.
+
+* ❌ **Pager configured but no on‑call rota.** Alerts go nowhere at 2 a.m.
+* ❌ **No SLO on time‑to‑production for a typical PR.** Improvement is
+  invisible without a baseline.
+* ❌ **No mechanism to retire old subscriptions.** Cost balloons silently.
+* ❌ **No fire drills** for state recovery, credential leak, full‑estate
+  outage. The first time you do it should not be in production.
 
 ---
 

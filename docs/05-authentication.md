@@ -3,6 +3,7 @@
 **In this chapter:**
 
 - [How we got here](#how-we-got-here)
+- [Decision framework](#decision-framework)
 - [The hard rule](#the-hard-rule)
 - [What to use, by runner](#what-to-use-by-runner)
 - [OIDC federation — how it actually works](#oidc-federation-how-it-actually-works)
@@ -21,26 +22,27 @@
 
 [← 04 Branching & environments](04-branching-and-environments.md) · [Index](../README.md) · [06 Security →](06-security.md)
 
----
+**Recommendation in one paragraph.** Use **OIDC federated credentials for every Azure deployment pipeline** and ban long‑lived service principal secrets or certificates from CI/CD systems. GitHub Actions, Azure DevOps, GitLab, and Azure‑hosted self‑hosted runners all have a secretless path now: exchange a runner‑issued OIDC token or managed identity token for a short‑lived Entra access token, then scope that identity to the smallest environment blast radius. This chapter explains how to choose the identity object, configure federation, grant RBAC, extend the pattern to non‑Azure systems, and keep human access separate and auditable.
 
-Every pipeline that deploys to Azure needs to prove its identity. For years that proof came in the form of a secret — a certificate or client secret tucked into an environment variable, one careless `git push` away from a breach report. This chapter shows how to eliminate that secret entirely using workload identity federation, how to scope the resulting access to the minimum blast radius, and how to make your audit trail actually useful.
+---
 
 ## How we got here
 
-The history of pipeline auth to Azure is a sequence of *reactions to
-breaches*. In the early days you minted a **service principal with an
-X.509 certificate**, mounted it onto your build agent, and prayed nobody
-copied the PFX. When that proved operationally painful, the community
-moved to **client secrets** — easier to handle, easier to leak, and leak
-they did, repeatedly, in committed YAML files and CI logs. Microsoft
-shipped **Managed Identities** in 2017, which solved the problem
-elegantly *for workloads running in Azure*, but CI/CD runners (GitHub‑
-hosted, Jenkins on‑prem, GitLab SaaS) still needed long‑lived secrets.
-GitHub announced **OIDC for Actions** in 2021, Entra added support for
-**workload federated credentials** the same year, and the entire problem
-class evaporated almost overnight: the runner asks GitHub for a
-short‑lived signed JWT, exchanges it with Entra, and gets a 1‑hour
-access token. No secret ever exists.
+Pipeline authentication should now be treated as a solved, secretless
+problem: the industry spent a decade moving from fragile credentials to
+OIDC federation, and Azure CI/CD should move with it. In the early days
+you minted a **service principal with an X.509 certificate**, mounted it
+onto your build agent, and prayed nobody copied the PFX. When that proved
+operationally painful, the community moved to **client secrets** — easier
+to handle, easier to leak, and leak they did, repeatedly, in committed
+YAML files and CI logs. Microsoft shipped **Managed Identities** in 2017,
+which solved the problem elegantly *for workloads running in Azure*, but
+CI/CD runners (GitHub‑hosted, Jenkins on‑prem, GitLab SaaS) still needed
+long‑lived secrets. GitHub announced **OIDC for Actions** in 2021, Entra
+added support for **workload federated credentials** the same year, and
+the entire problem class evaporated almost overnight: the runner asks
+GitHub for a short‑lived signed JWT, exchanges it with Entra, and gets a
+1‑hour access token. No secret ever exists.
 
 > 📘 **Key terms**
 >
@@ -58,15 +60,45 @@ access token. No secret ever exists.
 >
 > **SIEM (Security Information and Event Management)** — a platform (e.g. Microsoft Sentinel) that aggregates logs from across your estate for threat detection and incident response.
 >
-> **Conditional Access** — Entra ID policies that enforce requirements (MFA, compliant device, location) before granting access to resources.By 2024 federated credentials had
-spread to **user‑assigned managed identities** as well, and Azure DevOps
-shipped its own equivalent. There is now no defensible reason to store an
-Azure secret in a CI system — and yet, the surveys keep showing that most
-do. This chapter exists to make sure you don't.
+> **Conditional Access** — Entra ID policies that enforce requirements (MFA, compliant device, location) before granting access to resources.
+
+By 2024 federated credentials had spread to **user‑assigned managed
+identities** as well, and Azure DevOps shipped its own equivalent. There
+is now no defensible reason to store an Azure secret in a CI system — and
+yet, the surveys keep showing that most do. This chapter exists to make
+sure you don't.
+
+---
+
+## Decision framework
+
+The decision is straightforward: eliminate stored Azure credentials first,
+then choose the federated identity and RBAC scope that minimize blast
+radius for each runner and environment.
+
+Answer these questions in order before wiring a pipeline:
+
+1. **Which runner is authenticating — GitHub Actions, Azure DevOps, GitLab, or self‑hosted?**
+   * GitHub Actions and GitLab use issuer/subject OIDC claims.
+   * Azure DevOps should use a workload identity federation service connection.
+   * Self‑hosted runners on Azure should use managed identity where possible.
+2. **Which identity object should receive the trust — SPN, managed identity, or user‑assigned managed identity with federation?**
+   * Prefer user‑assigned managed identity with federation when it fits; use an SPN with a federated credential when platform support or tooling requires it.
+3. **What is the RBAC scope per environment — management group, subscription, or resource group?**
+   * Scope by environment and layer, not by convenience; prod and non‑prod need separate identities.
+4. **Does the pipeline authenticate to systems beyond Azure?**
+   * Apply the same rule to GitHub, Datadog, Vault, registries, and Terraform platforms: federate or use issued tokens, not stored secrets.
+5. **For multi‑tenant estates, which tenant owns each federated identity?**
+   * Create one identity per target tenant and let the pipeline select the right credential rather than stretching one identity across tenants.
+
+The detailed guidance below expands each answer into the concrete Azure
+and CI/CD configuration choices.
+
+---
 
 ## The hard rule
 
-**No long‑lived Azure credentials in any CI/CD system. Period.**
+**Verdict:** no long‑lived Azure credentials in any CI/CD system. Period.
 
 In 2026 there is no good reason to store a service principal client secret
 or certificate in a GitHub Actions secret, an Azure DevOps service connection
@@ -77,7 +109,7 @@ supported and removes the entire class of "leaked secret" incidents.
 
 ## What to use, by runner
 
-The mechanism varies by CI platform, but the principle is uniform: federate whenever possible, use managed identity for Azure‑hosted runners, and reserve interactive `az login` for humans.
+**Verdict:** federate from SaaS CI, use managed identity for Azure‑hosted self‑hosted runners, and reserve interactive `az login` for humans; never fall back to stored Azure credentials because a platform feels different.
 
 | Runner | Recommended | How |
 |--------|-------------|-----|
@@ -91,9 +123,10 @@ The mechanism varies by CI platform, but the principle is uniform: federate when
 
 ## OIDC federation — how it actually works
 
-The whole exchange happens inside a single workflow run. No secret is
-created, transmitted, or stored — only short‑lived signed tokens cross
-the wire.
+**Verdict:** OIDC federation is the default pipeline authentication
+pattern because the whole exchange happens inside a single workflow run
+without creating, transmitting, or storing a secret — only short‑lived
+signed tokens cross the wire.
 
 ```mermaid
 sequenceDiagram
@@ -189,7 +222,7 @@ Note: those values can be in `vars` (not `secrets`) — they aren't sensitive.
 
 ## SPN vs Managed Identity vs User‑Assigned MI with federation
 
-OIDC works with more than one identity type, and the choice carries security implications beyond mere convenience.
+**Verdict:** prefer user‑assigned managed identity with federation when supported, use a federated SPN when tooling requires it, and avoid any pattern that lets humans share the pipeline identity.
 
 | Identity type | Used for | Notes |
 |---------------|----------|-------|
@@ -205,7 +238,9 @@ all — defence in depth. SPNs remain valid; both are acceptable.
 
 ## RBAC scope — least privilege per environment
 
-Create one identity per **(environment × layer)**:
+**Verdict:** create one federated identity per **(environment × layer)** and grant it only the Azure scope that layer genuinely deploys.
+
+For example:
 
 ```
 sp-alz-foundation-prod      → Owner @ tenant root MG (rare use)
@@ -237,6 +272,8 @@ That covers the Azure plane. Landing zone pipelines, however, rarely speak to AR
 
 ## Authenticating to other systems
 
+**Verdict:** every non‑Azure integration should use federation, platform‑issued tokens, or fine‑grained app credentials before you consider a stored secret.
+
 Pipelines often need more than just Azure:
 
 | Target | Recommendation |
@@ -256,7 +293,9 @@ Pipelines are only one half of the authentication picture. The engineers who tri
 
 ## Developer access
 
-Engineers should **never** hold the same identity as a pipeline. Patterns:
+**Verdict:** humans and pipelines must use different identities, with engineers relying on interactive sign‑in, Conditional Access, and PIM rather than deploy SPNs.
+
+Patterns:
 
 * Engineers `az login` interactively. Conditional Access enforces MFA + device
   compliance.
@@ -271,7 +310,9 @@ Keeping humans and pipelines on separate identities is a prerequisite for meanin
 
 ## Audit & rotation
 
-OIDC removes secret rotation from your operational burden, but not auditing:
+**Verdict:** OIDC removes secret rotation, but you still need to audit token use, role assignments, and federated credential drift.
+
+Operational controls:
 
 * Stream Entra **sign‑in logs** to your SIEM. Filter on the deploy SPN
   app IDs.
@@ -289,15 +330,18 @@ OIDC removes secret rotation from your operational burden, but not auditing:
 
 ## Multi‑tenant scenarios
 
+**Verdict:** create one federated identity per target tenant and let the pipeline choose the right tenant‑specific credential; do not stretch one SPN across tenants with Guest access.
+
 If your platform spans multiple Entra tenants (acquisitions, sovereign
-clouds), do **not** create one SPN that has Guest access across tenants.
-Create one identity *per tenant*, federated separately. The cross‑tenant
-glue lives in the pipeline (it picks the right credential for the target
-subscription), not in Entra.
+clouds), create one identity *per tenant*, federated separately. The
+cross‑tenant glue lives in the pipeline (it picks the right credential for
+the target subscription), not in Entra.
 
 ---
 
 ## Anti‑patterns
+
+These choices reintroduce long‑lived secrets, blur audit trails, or expand blast radius after federation has solved the core problem.
 
 * ❌ **Service principal client secret stored in GitHub `secrets`** —
   whoever can edit the workflow file can exfiltrate it via `echo`.

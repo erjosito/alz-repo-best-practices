@@ -3,7 +3,7 @@
 **In this chapter:**
 
 - [How we got here](#how-we-got-here)
-- [Why this is not a footnote](#why-this-is-not-a-footnote)
+- [Decision framework](#decision-framework)
 - [Terraform backend choice](#terraform-backend-choice)
 - [Locking](#locking)
 - [Blast radius — how to size state files](#blast-radius-how-to-size-state-files)
@@ -21,9 +21,21 @@
 
 [← 06 Security](06-security.md) · [Index](../README.md) · [08 CI/CD pipeline patterns →](08-cicd-pipelines.md)
 
----
+**Recommendation in one paragraph.** Size state files to limit blast radius:
+use one Terraform state per environment per workload, default to a remote
+backend with locking, or use Bicep Deployment Stacks as the equivalent
+lifecycle boundary. Never share state between environments, never treat local
+state as harmless, and never let consumers read a producer's state just to get
+an output. For Azure‑native Terraform, the recommended default is Azure Storage
+with blob lease locking, private endpoints, CMK, RBAC, and a dedicated state
+subscription; for production Bicep, the recommended default is Deployment Stacks
+with explicit scope, `denySettings`, and reviewed `actionOnUnmanage`. State is
+where Terraform keeps its map of the world — and historically where teams have
+kept their worst secrets, their most spectacular outages, and their longest
+Friday evenings — so design the topology as an operational safety control, not
+as a footnote.
 
-State is where Terraform keeps its map of the world. It is also, historically, where teams have kept their worst secrets, their most spectacular outages, and their longest Friday evenings. This chapter shows how to design a state topology that contains blast radius, harden the backend that stores it, and — for those on Bicep — how Deployment Stacks offer an escape from the problem entirely.
+---
 
 ## How we got here
 
@@ -62,27 +74,80 @@ to operate. The chapter covers both worlds.
 >
 > **Azure Blueprints** — a now‑deprecated Azure governance service (sunset July 2026) that bundled ARM templates, policy assignments, role assignments, and resource groups into a versioned, assignable package. Superseded by Deployment Stacks.
 
-Understanding why state management matters operationally is best approached by considering how badly it can go wrong.
+---
 
-## Why this is not a footnote
+## Decision framework
+
+Pick the state model by answering these questions in order. The first two
+answers set the tool and storage model; the later answers reduce blast radius,
+secret exposure, and lifecycle risk before any pipeline runs `apply`.
+
+1. **Terraform or Bicep — which dictates the state model?**
+   * Terraform → choose and harden a remote backend; state is an operator‑owned
+     artifact.
+   * Bicep → use Deployment Stacks for production lifecycle management; Azure
+     owns the stack metadata.
+
+2. **Which Terraform backend fits the operating model?**
+   * Choose a backend that supports locking — no exceptions.
+   * Azure‑native ALZ → `azurerm` backend in Azure Storage with blob lease
+     locking is the recommended default.
+   * Terraform Cloud / Enterprise → viable when you also want run UI, Sentinel,
+     and dynamic provider credentials.
+   * `s3` + DynamoDB → only when AWS is already part of the platform.
+   * Local state → never for anything persistent or shared.
+
+3. **How small should one state file be?**
+   * Use one state per *(environment × workload)* as the default blast‑radius
+     boundary; never one mega‑state for the estate.
+   * Size by unit of deployment, not by repo or team.
+   * A single `apply` should touch resources owned by one team and deployable in
+     under 15 minutes.
+
+4. **How do downstream stacks reference upstream state?**
+   * Prefer explicit outputs published to App Configuration, tagged resource
+     groups, or another controlled configuration store.
+   * Use `terraform_remote_state` only when the consumer is trusted to read the
+     producer's full state contents.
+   * For Bicep, use `existing` lookups or the same explicit output store.
+
+5. **For Bicep, are Deployment Stacks managing production lifecycle?**
+   * Use stacks for lifecycle tracking, `denySettings`, `actionOnUnmanage`, and
+     managed identity rotation.
+   * Raw `az deployment` is acceptable for ephemeral PR environments, not for
+     production landing zones.
+
+6. **How is state secured?**
+   * Treat state like a secret store: encrypted at rest with CMK, network
+     isolated, access audited, humans elevated through PIM, and soft delete and
+     versioning enabled.
+   * Put Terraform state in a separate subscription, behind a private endpoint,
+     encrypted with customer‑managed keys, and accessed through RBAC rather than
+     shared keys.
+
+Quick reference of the core choices:
+
+| Decision | Recommended default | Why |
+|----------|---------------------|-----|
+| Terraform backend | Azure Storage `azurerm` backend | OIDC, blob lease locking, private endpoint, CMK, Azure RBAC. |
+| Terraform granularity | One state per *(environment × workload)* | Limits corruption and bad‑apply blast radius. |
+| Cross‑state references | Explicit outputs in App Configuration or tags | Avoids leaking producer state secrets to consumers. |
+| Bicep lifecycle | Deployment Stacks for prod | Gives managed resource tracking, deny settings, and unmanage behaviour. |
+| State security | Dedicated subscription + private endpoint + CMK + RBAC | Keeps the ledger outside the blast radius of the resources it manages. |
 
 State is the **most operationally dangerous** part of Terraform. A corrupt
-state file at 2 a.m. on a Friday is a career‑defining moment. Get the
-shape right up front:
-
-* **One state file per (environment × workload).** Not per repo, not per
-  team — per *unit of deployment*.
-* **Backend that supports locking.** No exceptions.
-* **Treat state like a secret store.** Encrypted at rest with CMK, network
-  isolated, access audited.
-
-For Bicep, **Deployment Stacks** play the same role: scope = blast radius.
-
-With the principles established, the next question is which backend configuration satisfies them.
+state file at 2 a.m. on a Friday is a career‑defining moment, and the same
+principle applies to Bicep stacks: scope is blast radius. The full analysis
+below explains how each choice works, where it breaks, and how to operate it
+safely.
 
 ---
 
 ## Terraform backend choice
+
+**Verdict:** for Azure‑native ALZ implementations, use the Terraform `azurerm`
+backend in Azure Storage; choose another backend only when its operating model
+is already part of your platform.
 
 Not all backends are created equal for enterprise use. The choice affects locking behaviour, authentication options, network isolation, and whether your OIDC story carries through end to end.
 
@@ -157,6 +222,9 @@ Hardening checklist for the storage account:
 
 ## Locking
 
+**Verdict:** blob lease locking is mandatory for Terraform, but pipeline-level
+concurrency is still required so two jobs never contend for the same state.
+
 Terraform's `azurerm` backend uses **blob leases** for locking. This is
 sufficient and battle‑tested. Behaviour:
 
@@ -178,6 +246,9 @@ Locking prevents the concurrent‑apply catastrophe. The complementary concern i
 ---
 
 ## Blast radius — how to size state files
+
+**Verdict:** keep state wide and shallow — a single `apply` should affect one
+team's resources, in one environment, and finish in under 15 minutes.
 
 The smaller the state, the smaller the blast radius of a corruption or a
 bad apply, but the more cross‑state references you need. The sweet spot:
@@ -252,6 +323,10 @@ stack per vended subscription, scoped at subscription level.
 
 ## Cross‑state references
 
+**Verdict:** prefer explicit published outputs over direct state reads;
+`terraform_remote_state` is convenient but grants access to everything in the
+producer's state file.
+
 Workload state needs the hub VNet ID. Two patterns:
 
 ### A) `terraform_remote_state` data source
@@ -316,6 +391,10 @@ Even the best‑designed topology will eventually require manual intervention �
 
 ## State surgery — when you must
 
+**Verdict:** avoid state surgery unless there is no safer path; when you must
+perform it, use reviewed Terraform commands from a logged runner and prove the
+post-surgery plan is clean.
+
 Avoid it. When unavoidable:
 
 1. **Always back up** the current state first:
@@ -370,6 +449,10 @@ provides a **Golang state migration tool** that automates much of this:
 ---
 
 ## Bicep — Deployment Stacks
+
+**Verdict:** production Bicep ALZ deployments should use Deployment Stacks;
+raw deployments are for disposable environments where lifecycle protection is
+not required.
 
 Bicep doesn't have state, but **Deployment Stacks** give you the same
 benefits:
@@ -474,6 +557,9 @@ workflow. Microsoft provides a
 
 ## Drift detection
 
+**Verdict:** run scheduled drift checks for every state file or stack; the
+absence of drift must be verified, not assumed.
+
 Run a scheduled `plan` (or `what‑if` for Bicep) per state/stack, weekly:
 
 * Empty diff → all green.
@@ -490,6 +576,9 @@ The anti‑patterns below are the architectural choices most likely to turn a co
 ---
 
 ## Anti‑patterns
+
+**Verdict:** the failure modes below all expand blast radius, weaken locking,
+or expose secrets; design them out before the first production apply.
 
 * ❌ **One state file for the whole estate.** "Apply" becomes a ritual,
   changes pile up, and one mistake breaks everything.

@@ -3,6 +3,7 @@
 **In this chapter:**
 
 - [How we got here](#how-we-got-here)
+- [Decision framework](#decision-framework)
 - [Why this gets a whole chapter](#why-this-gets-a-whole-chapter)
 - [Naming convention](#naming-convention)
 - [Tagging convention](#tagging-convention)
@@ -17,7 +18,7 @@
 
 [← 11 Manageability](11-manageability.md) · [Index](../README.md) · [13 Documentation →](13-documentation.md)
 
-Every process in a well-run Azure estate — cost reporting, security automation, decommissioning, disaster recovery — relies on one assumption: that a resource's name and tags are trustworthy, consistent, and machine-readable. This chapter argues that naming and tagging are not housekeeping but infrastructure, and that the only way to treat them as such is to encode them in code and enforce them with policy.
+**Recommendation in one paragraph.** Adopt one enforced convention: lowercase, dash‑separated resource names built from Microsoft CAF abbreviations, plus a mandatory tag set that is applied by modules and enforced by Azure Policy. Treat names as the human-readable index and tags as the machine-readable source of truth for cost, ownership, security, lifecycle, and automation. Define the pattern, abbreviations, allowed tag values, management-group names, subscription names, and region codes once in shared code and policy; anything that is only documented on a slide will drift.
 
 ---
 
@@ -52,7 +53,27 @@ Policy `modify` effects** that auto‑append RG tags, and to mandatory tag
 sets enforced by `deny`. The boring takeaway: **what isn't enforced by
 code or policy doesn't exist**. Training slides don't enforce; CI does.
 
+---
+
+## Decision framework
+
+Answer these questions to define the convention before teams start deploying. The output should be both a standards page and executable code: a naming module, `_shared/abbreviations.tf` or `abbreviations.bicep`, canonical tag values, and Azure Policy assignments.
+
+1. **What is the canonical naming pattern?** Choose the required components — workload, environment, region, resource type, and instance — and their order. This guide's examples use `<resource-abbr>-<workload>-<env>-<region-abbr>-<instance>` with `-` separators because Azure operators scan resource type first; if your organisation prefers workload-first (`<workload>-<env>-<region>-<resourceType>-<instance>`), make that the one allowed order and encode any resource-specific exceptions.
+2. **Which abbreviations are allowed for resource types?** Start with Microsoft's official CAF abbreviation list, then lock any additions or shortened forms in `_shared/abbreviations.tf` or `abbreviations.bicep` so modules and reviews use the same vocabulary.
+3. **What casing is allowed?** Default to lowercase everywhere Azure permits it. Reserve PascalCase only for values that humans read as display names or formal labels, such as management-group display names or tag values that intentionally follow a business taxonomy.
+4. **Which tags are mandatory, and how are they enforced?** Use a small core set — workload, environment, owner, cost centre, criticality, data classification, and business unit — then enforce it with module defaults plus Azure Policy `Modify`/`DeployIfNotExists` for inheritance and `Audit`/`Deny` for missing or invalid values.
+5. **How are management groups and subscriptions named?** Mirror the management-group path in subscription names so governance, cost, and incident queries can infer the hierarchy without a portal lookup.
+6. **How is region encoded?** Pick full Azure location names for policy (`swedencentral`) and a documented short code for names (`swc`), then use that mapping consistently in every module and exception request.
+7. **How are exceptions handled?** Require an expiring exemption tag, a reason, and approval from the relevant CODEOWNER; open-ended exceptions become the new convention.
+
+With those answers fixed, the rest of the chapter shows the convention in practice and the tradeoffs behind it.
+
+---
+
 ## Why this gets a whole chapter
+
+**Conclusion:** Naming and tagging deserve their own chapter because every operational process uses them as a lookup table; a weak convention becomes a permanent tax.
 
 Naming and tagging are the **load‑bearing infrastructure of every other
 process**: cost reporting, access control, automation, decommissioning,
@@ -62,7 +83,7 @@ costs you forever.
 The opposite is also true: an over‑engineered convention nobody can remember
 gets violated immediately. Aim for **rigorous but humane**.
 
-With the case for rigour established, here is what rigour looks like in practice — starting with the naming convention itself.
+The practical target is a convention humans can remember and automation can enforce.
 
 > ⚖️ **The debate — do you even need a naming convention?**
 >
@@ -105,9 +126,13 @@ With the case for rigour established, here is what rigour looks like in practice
 > adopt a convention *and* enforce tags — treating names as a
 > human‑readable index and tags as the machine‑readable source of truth.
 
+With that stance established, start by making the resource name predictable.
+
 ---
 
 ## Naming convention
+
+**Convention:** use lowercase, dash‑separated names built from Microsoft CAF resource abbreviations, workload, environment, region abbreviation, and instance — generated by a shared naming module, not typed by humans.
 
 ### Anatomy
 
@@ -141,7 +166,10 @@ Rules:
 ### Canonical resource abbreviations
 
 Use the [Microsoft CAF resource abbreviations list][caf-abbr] as a starting
-point. Don't invent your own — they aren't worth the bus‑factor cost.
+point. Don't invent your own — they aren't worth the bus‑factor cost. Lock
+the approved subset and any shortened forms in `_shared/abbreviations.tf` or
+`abbreviations.bicep` so Terraform/Bicep code, reviews, and documentation all
+resolve the same resource type to the same string.
 
 [caf-abbr]: https://learn.microsoft.com/azure/cloud-adoption-framework/ready/azure-best-practices/resource-abbreviations
 
@@ -192,11 +220,15 @@ A consistent naming convention tells you what a resource *is*. A consistent tagg
 
 ## Tagging convention
 
+**Convention:** enforce a small mandatory tag set at both resource-group and resource level, using module defaults for consistency and Azure Policy `Modify`/`DeployIfNotExists` plus `Audit`/`Deny` for drift control.
+
 ### Mandatory tags
 
-Every resource (and every resource group) must carry these. Enforce via
-Azure Policy `Append` (auto‑apply RG tags to resources) and `Audit`/`Deny`
-for the rest.
+Every resource (and every resource group) must carry these. Start with the
+core operational set — workload, environment, owner, cost centre, criticality,
+data classification, and business unit — then add traceability tags only when
+they drive automation. Enforce via Azure Policy `Modify`/`DeployIfNotExists`
+(auto‑apply RG tags to resources) and `Audit`/`Deny` for the rest.
 
 | Tag key | Example | Notes |
 |---------|---------|-------|
@@ -224,8 +256,10 @@ for the rest.
 Tags do **not** inherit automatically from RG to resource (despite many
 tutorials implying so). Implement:
 
-* **Policy `modify` effect** to auto‑append RG tags to resources at creation.
-  Use sparingly — too many `modify` policies make `terraform plan` noisy.
+* **Policy `modify` effect** to auto‑append RG tags to resources at creation,
+  with `DeployIfNotExists` where remediation needs a managed identity or a
+  child deployment. Use sparingly — too many `modify` policies make
+  `terraform plan` noisy.
 * **Module defaults** — every module accepts a `tags` map and merges with
   its own additions. Do **not** rely on `default_tags` in the AzureRM
   provider for required tags; module‑level merging is more explicit.
@@ -267,6 +301,8 @@ Resource-level naming and tagging address the workload layer. The same principle
 ---
 
 ## Management group / subscription naming
+
+**Convention:** management-group and subscription names should mirror the ALZ hierarchy so ownership and governance scope are obvious from the string.
 
 These are top‑level too — bake them into the foundation:
 
@@ -327,6 +363,8 @@ Management group and subscription names establish *what* things are and *whose* 
 
 ## Region strategy
 
+**Convention:** approve a small region set, encode full Azure location names in policy, and use one documented short code in resource names.
+
 Pick a small number of **primary regions** (typically 2 per geo for DR
 pairing) and don't deploy outside them without an exception process.
 
@@ -351,6 +389,8 @@ sandbox.
 ---
 
 ## Anti‑patterns
+
+**Verdict:** every anti-pattern below creates metadata that humans or automation will eventually stop trusting.
 
 * ❌ **Inventing your own resource abbreviations.** Use Microsoft's CAF
   list; the bus factor is too high otherwise.

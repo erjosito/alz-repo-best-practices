@@ -3,9 +3,9 @@
 **In this chapter:**
 
 - [How we got here](#how-we-got-here)
+- [Decision framework](#decision-framework)
 - [Summary recommendation](#summary-recommendation)
 - [The contenders](#the-contenders)
-- [Decision criteria](#decision-criteria)
 - [Mixing engines — when, and how to survive it](#mixing-engines-when-and-how-to-survive-it)
 - [Example — same resource in both engines](#example-same-resource-in-both-engines)
 - [Anti‑patterns](#antipatterns)
@@ -17,11 +17,13 @@
 
 [← 01 Repository topology](01-repository-topology.md) · [Index](../README.md) · [03 Modules & registries →](03-modules-and-registries.md)
 
-Choosing between Bicep and Terraform has launched more heated team debates than almost any other IaC decision. Behind the enthusiasm, the real question is operational: which tool will your team still be maintaining confidently — under pressure, at an unglamorous 2 a.m. — in three years? This chapter walks through each contender honestly, including where each one quietly fails, and gives you a decision framework for estates ranging from single-cloud greenfields to messy multi-cloud realities.
+Pick one primary IaC engine per ALZ layer, and default to the tool your team can operate confidently under pressure. For Azure-only greenfield estates, **Bicep + Deployment Stacks** is now a first-class default; for brownfield, multi-cloud, or Terraform-skilled teams, **Terraform with AzureRM/AzAPI** remains the safer operational bet. Keep platform and landing-zone code on the same engine unless you have a documented boundary and a specific reason to go bilingual. Do not choose on syntax aesthetics alone — choose on ownership, state tolerance, review quality, and who will maintain the estate at 2 a.m. Read on if you need to justify Bicep versus Terraform, decide whether Pulumi fits your team, or survive a mixed-engine ALZ without drift wars.
 
 ---
 
 ## How we got here
+
+**Bottom line:** Bicep and Terraform are both first‑class Azure choices now; the history matters because it explains why state, plan quality, and team familiarity still dominate the decision.
 
 The first wave of "Azure as code" was bash scripts wrapping `azure-cli`
 (then `az`), often committed alongside README sentences like *"run these
@@ -39,7 +41,40 @@ loyal niche but never displaced Terraform for ops‑led teams. Today the
 honest answer to "Bicep or Terraform?" is "whichever your team will still
 be operating well at 2 a.m." — both are first‑class on Azure in 2026.
 
+---
+
+## Decision framework
+
+**Use the engine your operators can own for the full lifecycle; treat mixed engines as an exception that needs an explicit boundary.** Answer these questions in order before debating syntax or ecosystem preferences.
+
+1. **Start with skills already on the team.** The single best predictor of long‑term success is whether the team already operates the tool well; a team fluent in Terraform will ship a better Terraform ALZ than a Bicep one even if Bicep is "theoretically" simpler for Azure‑only.
+
+2. **Choose Bicep for pure Azure with no SaaS configuration.** Pure Azure, no SaaS configuration → **Bicep** is hard to argue against.
+
+3. **Choose Terraform when the estate crosses Azure's boundary.** Any non‑Azure resources (GitHub, Entra B2B, Datadog, AWS DR site) → **Terraform**.
+
+4. **Choose Bicep + Deployment Stacks when separate state is unacceptable.** If your operating model cannot accept a separate state store (security review, operational burden, blob/Cosmos availability concerns), Bicep + Deployment Stacks removes that burden entirely.
+
+5. **Use AzAPI when Terraform needs same‑day Azure features.** Bicep reaches new Azure features the same day as the ARM REST API; Terraform AzureRM can lag by weeks or months; Terraform AzAPI is same day, at the cost of writing ARM‑shaped HCL.
+
+6. **Prefer Terraform when PR review depends on the strongest plan output.** `terraform plan` is more accurate than `az deployment what-if` today, although the gap has narrowed considerably with Bicep's [`what-if` improvements](https://learn.microsoft.com/azure/azure-resource-manager/templates/deploy-what-if).
+
+Quick reference by operating context:
+
+| Context | Lead recommendation | Why |
+|---------|---------------------|-----|
+| Azure‑only greenfield | **Bicep + Deployment Stacks** | Native Azure, no separate state store, same‑day ARM API access. |
+| Existing Terraform or multi‑cloud estate | **Terraform AzureRM/AzAPI** | Existing skills, reviewable `plan`, providers for Azure and non‑Azure systems. |
+| Strong software‑engineering culture with cross‑cloud needs | **Pulumi** | Real programming languages and normal unit‑test frameworks. |
+| Legacy ARM templates | **Decompile to Bicep** | ARM JSON remains a transport format, not a 2026 authoring target. |
+
+If the framework still leaves you genuinely split — often because different platform layers are owned by teams with different skill sets — read the tool analysis first, then treat a bilingual estate as an explicit exception rather than the default.
+
+---
+
 ## Summary recommendation
+
+**Verdict:** Use Bicep or Terraform for the core ALZ layers, keep the choice consistent within a layer, and reserve ARM JSON and Pulumi for narrow cases.
 
 The short version, before we go deeper into each tool's strengths and failure modes:
 
@@ -84,7 +119,11 @@ confidently at 2 a.m.
 
 ## The contenders
 
+**Verdict:** Bicep and Terraform are the real defaults for ALZ; ARM is legacy authoring, Pulumi is niche, and accelerators are scaffolding rather than an engine decision.
+
 ### Bicep
+
+**Verdict:** Choose Bicep for Azure‑only estates that value native API coverage and no separate state file.
 
 Microsoft's first‑party DSL (domain‑specific language) that transpiles
 (compiles from one high‑level language to another) to ARM JSON.
@@ -107,6 +146,8 @@ Microsoft's first‑party DSL (domain‑specific language) that transpiles
   (RBAC role assignments, child resources). Validate empirically.
 
 ### Terraform (with AzureRM and/or AzAPI providers)
+
+**Verdict:** Choose Terraform when you need multi‑cloud reach, third‑party providers, or the strongest reviewable plan workflow.
 
 The de‑facto multi‑cloud standard.
 
@@ -131,6 +172,8 @@ The de‑facto multi‑cloud standard.
 
 ### ARM (JSON)
 
+**Verdict:** Keep ARM JSON as a transport or migration format, not as hand‑authored ALZ code.
+
 The original.
 
 **Strengths**
@@ -142,6 +185,8 @@ The original.
 * Authoring ARM JSON by hand in 2026 is an anti‑pattern. Use Bicep.
 
 ### Pulumi
+
+**Verdict:** Use Pulumi only when your platform team has the software‑engineering discipline to review infrastructure as program code.
 
 IaC in real programming languages (TypeScript, Python, Go, C#).
 
@@ -157,6 +202,8 @@ IaC in real programming languages (TypeScript, Python, Go, C#).
   for Ops‑background platform teams.
 
 ### ALZ accelerators
+
+**Verdict:** Use ALZ accelerators to bootstrap the repo and pipeline, then take ownership of the generated codebase.
 
 These aren't an engine choice — they're a *starting point* that
 bootstraps a production‑grade CI/CD pipeline, state storage, identities,
@@ -317,43 +364,9 @@ With all the options on the table, the practical question is which combination a
 
 ---
 
-## Decision criteria
-
-### 1. Skills already on the team
-
-The single best predictor of long‑term success. A team fluent in Terraform
-will ship a better Terraform ALZ than a Bicep one even if Bicep is
-"theoretically" simpler for Azure‑only.
-
-### 2. Single cloud or multi‑cloud?
-
-* Pure Azure, no SaaS configuration → **Bicep** is hard to argue against.
-* Any non‑Azure resources (GitHub, Entra B2B, Datadog, AWS DR site) →
-  **Terraform**.
-
-### 3. State tolerance
-
-If your operating model cannot accept a separate state store (security review,
-operational burden, blob/Cosmos availability concerns), Bicep + Deployment
-Stacks removes that burden entirely.
-
-### 4. Speed of access to new Azure features
-
-* Bicep: same day as ARM REST API.
-* Terraform AzureRM: weeks–months lag.
-* Terraform AzAPI: same day, at the cost of writing ARM‑shaped HCL.
-
-### 5. Policy / "what‑if" reliability
-
-`terraform plan` is more accurate than `az deployment what-if` today, although
-the gap has narrowed considerably with Bicep's
-[`what-if` improvements](https://learn.microsoft.com/azure/azure-resource-manager/templates/deploy-what-if).
-
-If the criteria above still leave you genuinely split — often because different platform layers are owned by teams with different skill sets — a bilingual estate is sometimes the honest answer.
-
----
-
 ## Mixing engines — when, and how to survive it
+
+**Verdict:** Avoid bilingual estates unless one of a few specific situations applies; if you mix engines, enforce hard ownership boundaries.
 
 Bilingual estates exist, usually because:
 
@@ -376,6 +389,8 @@ If you go bilingual, enforce these rules:
 ---
 
 ## Example — same resource in both engines
+
+**Verdict:** Use the example as a syntax and workflow comparison, not as a reason to switch engines by itself.
 
 For reference, here is the same simple deployment (a VNet with two subnets) in
 each. Notice the difference in *what you have to think about*.
@@ -458,6 +473,8 @@ different questions.
 
 ## Anti‑patterns
 
+**Verdict:** The failures to avoid are choosing tools for isolated features, hand‑authoring legacy formats, or letting multiple engines manage the same resources.
+
 Most IaC tool mistakes fall into two camps: picking a tool for the wrong reasons, or letting two engines drift into each other's territory. The recurring offenders:
 
 * ❌ **Authoring ARM JSON by hand.** Use Bicep and `az bicep decompile` to
@@ -482,6 +499,8 @@ Most IaC tool mistakes fall into two camps: picking a tool for the wrong reasons
 With the toolchain chosen, the estate has a shape (Chapter 01) and a language (this chapter). The missing link is reuse: how do you avoid writing the same VNet module for each team that needs one, and how do you update it across 40 consumers without a week of coordinated PRs? Chapter 03 covers the module and registry architecture that turns "we have IaC" into "we have a maintainable IaC estate". The take-home from this chapter is simple: pick the engine your team owns confidently, keep it consistent within a layer, and put any deviation in writing.
 
 ## References
+
+These are the source materials behind the tool recommendations and accelerator notes in this chapter.
 
 * Microsoft, *Bicep documentation*:
   <https://learn.microsoft.com/azure/azure-resource-manager/bicep/>

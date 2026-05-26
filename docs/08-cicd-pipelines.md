@@ -3,6 +3,7 @@
 **In this chapter:**
 
 - [How we got here](#how-we-got-here)
+- [Decision framework](#decision-framework)
 - [GitHub Actions vs Azure DevOps Pipelines](#github-actions-vs-azure-devops-pipelines)
 - [The standard two‑workflow shape](#the-standard-twoworkflow-shape)
 - [Reusable workflow (the actual work)](#reusable-workflow-the-actual-work)
@@ -22,11 +23,24 @@
 
 [← 07 State management](07-state-management.md) · [Index](../README.md) · [09 Testing & policy →](09-testing-and-policy.md)
 
-Every commit that touches IaC code starts a race: will the pipeline catch the problem, or will it reach production? This chapter is about structuring that pipeline so the answer is reliably the former. By the end, you will have a working mental model of the two-workflow shape, reusable pipeline templates, and the operational patterns — retry, break-glass, caching — that separate a mature IaC pipeline from a fragile script held together with `sleep 30`.
+**Recommendation in one paragraph.** Standardise on a two‑workflow CI/CD
+shape for ALZ IaC: every pull request runs validation and plan, every merge
+to `main` deploys through environment gates, and both workflows delegate the
+real work to reusable pipeline templates. Pick GitHub Actions or Azure DevOps
+Pipelines based on where your code, identity federation, network egress, and
+audit controls already work — both are first‑class Azure deployment platforms
+in 2026. Add path‑based change detection, readable PR plan comments,
+idempotent retry, audited break‑glass workflows, and targeted caching so the
+pipeline catches bad infrastructure changes before they reach production
+instead of becoming a fragile script held together with `sleep 30`.
 
 ---
 
 ## How we got here
+
+The ALZ pipeline consensus landed on reusable workflows, ephemeral runners,
+and OIDC because every earlier generation of hand‑built deploy jobs drifted,
+leaked state, or hid change history.
 
 Early infrastructure pipelines were **Jenkins freestyle jobs** with the
 Terraform commands pasted into a textbox; the pipeline definition lived
@@ -61,9 +75,65 @@ getting into those patterns, one question needs settling: which platform?
 >
 > **DX (Developer Experience)** — the overall quality of the tooling, documentation, and workflows from a developer's perspective.
 
+---
+
+## Decision framework
+
+Use this sequence to turn pipeline design into explicit choices instead of
+inherited YAML. The recommended default is GitHub Actions or Azure DevOps
+Pipelines where your estate already operates, a PR‑plan plus main‑merge deploy
+shape, reusable definitions, path‑filtered matrices, readable PR plan comments,
+and a gated break‑glass workflow.
+
+1. **GitHub Actions or Azure DevOps Pipelines?**
+   * Pick the platform your IdP federation, private network egress, runner
+     model, and audit story already support.
+   * If the code already lives on github.com, default to GitHub Actions; if it
+     lives on dev.azure.com, default to Azure DevOps Pipelines.
+   * Do not run both unless a hard compliance, hosting, or migration constraint
+     justifies the extra syntax and operations burden.
+
+2. **What is your standard workflow shape?**
+   * Recommended: one PR‑triggered workflow that validates and plans, plus one
+     `main`‑merge workflow that deploys through environment gates.
+   * Treat production approval as an environment control, not an ad‑hoc prompt
+     inside a shell script.
+
+3. **How do you keep CI definitions DRY?**
+   * Use reusable workflows, Azure Pipelines templates, and composite actions so
+     the platform team fixes the pipeline once.
+   * Version shared pipeline contracts and roll updates through Renovate or
+     Dependabot instead of editing dozens of repos manually.
+
+4. **How do you detect which environments to plan or apply on each change?**
+   * Use path filters plus a generated matrix so each changed environment,
+     workload, or subscription is planned independently.
+   * Maintain a module‑to‑consumer map so shared module changes trigger every
+     affected environment.
+
+5. **How do you surface plan output?**
+   * Post a PR comment with a summary table, highlighted destructive changes,
+     and a collapsed full diff.
+   * Make the reviewer answer "what will change?" without downloading artifacts
+     or reading raw terminal logs.
+
+6. **Do you need a break‑glass or manual pipeline for incidents?**
+   * Yes — build it deliberately with `workflow_dispatch`, constrained inputs,
+     protected environments, required reviewers, and audit notifications.
+   * A gated manual workflow is safer than engineers running Terraform locally
+     against production state.
+
+The deep sections below show the implementation details behind each answer.
+
+---
+
 ## GitHub Actions vs Azure DevOps Pipelines
 
-Both can do the job. Pick on these criteria:
+**Verdict:** both GitHub Actions and Azure DevOps Pipelines can deploy Azure
+Landing Zones well, so choose the platform your source control, identity
+federation, network egress, and audit controls already make reliable.
+
+Compare the platforms on these criteria:
 
 | Factor | GitHub Actions | Azure DevOps Pipelines |
 |--------|----------------|------------------------|
@@ -87,7 +157,11 @@ in two files.
 
 ## The standard two‑workflow shape
 
-Every IaC repo should have exactly two workflows: one that runs on every
+**Verdict:** every IaC repo should expose a PR validation workflow and a
+main‑branch deploy workflow, with environment gates separating non‑prod from
+prod.
+
+Each repo should have exactly two workflows: one that runs on every
 PR to *prove* the change is safe, and one that runs after merge to
 *apply* it. Both delegate the actual work to a shared reusable workflow,
 so the per‑repo files stay short and consistent.
@@ -232,7 +306,10 @@ The **GitHub Environment `prod`** has:
 
 ## Reusable workflow (the actual work)
 
-Single source of truth — every repo calls these.
+**Verdict:** put the Terraform or Bicep mechanics in a reusable workflow so
+every repo calls the same tested deploy contract.
+
+The reusable workflow is the single source of truth — every repo calls these.
 
 `alz-pipeline-templates/.github/workflows/tf-apply.yml`:
 
@@ -279,6 +356,9 @@ A matching `tf-validate.yml` does `init`, `validate`, `plan`, `tflint`,
 
 ## PR comments that are actually useful
 
+**Verdict:** the plan comment should summarize risk first and hide raw detail
+behind an expandable section.
+
 Plan output dumped raw into a comment is unreadable. Format it:
 
 * **Collapsed `<details>` block** with the full plan inside.
@@ -296,6 +376,9 @@ A readable plan comment is half the story. The other half is making sure the pip
 ---
 
 ## Detecting changed environments
+
+**Verdict:** use git diff, path filters, and a matrix so the pipeline plans or
+applies only the environments affected by a change.
 
 The detect script is the bit that makes a layered repo scale:
 
@@ -374,6 +457,9 @@ Detection gives you scale; the next challenge is keeping a growing fleet of repo
 
 ## Pipeline‑as‑code, but DRY
 
+**Verdict:** centralize pipeline logic and version it, because per‑repo YAML
+copies diverge faster than platform teams can review them.
+
 Patterns to keep many repos consistent:
 
 * **Reusable workflows** (`workflow_call`) — call the same job from many
@@ -392,6 +478,9 @@ Keeping workflows DRY solves the consistency problem. The next challenge is reli
 
 ## Long‑running operations & retry
 
+**Verdict:** retry only idempotent, known‑flaky operations and encode
+service‑specific waits where the service knowledge belongs.
+
 Some Azure operations are flaky (Key Vault soft‑delete naming, AAD
 propagation, role assignment lag). Don't paper over with `sleep 30`:
 
@@ -406,6 +495,9 @@ propagation, role assignment lag). Don't paper over with `sleep 30`:
 ---
 
 ## Manual operations & the "break glass" pipeline
+
+**Verdict:** provide a manual break‑glass path, but make it more constrained,
+observable, and auditable than the normal deploy path.
 
 You will need it. Build one consciously:
 
@@ -424,6 +516,9 @@ With the operational edge cases handled, there are some cheap wins on raw speed 
 
 ## Caching and runtime
 
+**Verdict:** cache only deterministic tool artifacts and spend on larger runners
+when `init` and `plan` time dominates review feedback.
+
 A few cheap wins:
 
 * Cache `~/.terraform.d/plugin-cache` and the `.terraform` provider
@@ -438,6 +533,9 @@ A few cheap wins:
 ---
 
 ## Anti‑patterns
+
+**Verdict:** avoid any shortcut that hides deploy risk, forks the shared
+pipeline contract, or turns automation back into a manual handoff.
 
 * ❌ **Per‑repo, hand‑rolled workflows.** They diverge within a quarter.
   Use reusable workflows.
@@ -457,6 +555,9 @@ The patterns in this chapter give the pipeline its shape. What that pipeline *va
 ---
 
 ## References
+
+These references support the reusable workflow, environment gate, template, and
+Terraform automation patterns recommended above.
 
 * GitHub, *Reusable workflows*:
   <https://docs.github.com/actions/using-workflows/reusing-workflows>

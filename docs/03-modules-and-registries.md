@@ -3,6 +3,7 @@
 **In this chapter:**
 
 - [How we got here](#how-we-got-here)
+- [Decision framework](#decision-framework)
 - [The three‑tier module model](#the-threetier-module-model)
 - [Azure Verified Modules (AVM)](#azure-verified-modules-avm)
 - [Where do *your* (tier‑2) modules live?](#where-do-your-tier2-modules-live)
@@ -18,11 +19,13 @@
 
 [← 02 IaC tooling](02-iac-tooling.md) · [Index](../README.md) · [04 Branching & environments →](04-branching-and-environments.md)
 
-Sooner or later every IaC team writes the same storage account module twice. The second time, someone notices. By the fifth time, the variations have accumulated enough subtle differences that a "simple consolidation" becomes a multi-sprint migration. Modules and registries exist to break that cycle — but only if the versioning and distribution story is solved upfront. This chapter explains the three-tier model, how to choose where your modules live, and how to version and promote them without grinding platform delivery to a halt.
+**Recommendation in one paragraph.** Use AVM resource modules as tier 1, publish your own tier‑2 pattern modules with SemVer, and require every consumer to pin a known‑good version. That combination gives platform teams one place to enforce tags, diagnostics, security defaults, and naming while keeping landing‑zone code mostly composition glue. Prefer a dedicated module repo and private registry once more than a few teams consume the modules; Git tags are acceptable for simple Terraform‑only estates, but floating branches are never acceptable. Treat AVM as the default, not a mandate: raise upstream PRs for gaps and keep mature custom tier‑1 modules only when they are already tested and maintained. Read on if you own platform modules, review workload compositions, or need a versioning model that makes ALZ changes reproducible across environments.
 
 ---
 
 ## How we got here
+
+**Bottom line:** module registries exist because copy/paste reuse and Git-source shortcuts failed at enterprise scale; AVM now provides the tier‑1 baseline this chapter builds on.
 
 The first Terraform projects had no concept of modules at all — engineers
 copy‑pasted `.tf` files between repos and patched the differences by
@@ -37,10 +40,59 @@ breakthrough came in 2023 with **Azure Verified Modules (AVM)** — a
 single, Microsoft‑curated catalogue of Bicep *and* Terraform modules with
 consistent inputs, baked‑in WAF defaults, and a real maintenance commitment.
 Before AVM, every consultancy shipped its own subtly‑broken "vnet module";
-after AVM, that's a smell. The three‑tier model below builds on this
+after AVM, that's a smell. The decision framework and three‑tier model below build on this
 history.
 
+---
+
+## Decision framework
+
+Answer these questions in order. If a choice would make ownership,
+versioning, or release automation ambiguous, simplify the module model before
+adding another tier or registry.
+
+1. **How many tiers of modules do you actually need?**
+   Use AVM or equivalent resource modules as tier 1, add tier‑2 wrappers only
+   where enterprise conventions need to be enforced, and keep tier 3 as
+   workload composition glue.
+
+2. **Where do your tier‑2 modules live?**
+   Prefer a dedicated `alz-modules` repo for shared enterprise patterns; keep
+   modules beside platform code only while one small platform team owns all
+   consumers.
+
+3. **How are modules distributed and versioned?**
+   Git tags are fine for simple Terraform consumption; use ACR/OCI or a private
+   Terraform registry once Bicep or multiple teams need the same registry UX as
+   AVM.
+
+4. **How do consumers pin module versions?**
+   Pin foundation and platform repos to exact versions, let workload repos use
+   minor ranges for patches, and never point any environment at `main`,
+   `latest`, or a branch.
+
+5. **When do you fork an AVM module instead of raising a PR upstream?**
+   Do not fork by default; raise upstream PRs for gaps, and keep custom tier‑1
+   modules only where they are already mature, tested, and actively maintained.
+
+Quick reference:
+
+| Question | Recommended default |
+|----------|---------------------|
+| Module tiers | Tier 1 = AVM/resource modules; tier 2 = enterprise patterns; tier 3 = workload composition. |
+| Tier‑2 location | Dedicated `alz-modules` repo once modules are shared beyond one platform team. |
+| Distribution | Git tags for simple Terraform estates; ACR/OCI or private registry for broader consumption. |
+| Pinning | Exact for foundation/platform, minor range for workloads, never floating branches. |
+| AVM gaps | Contribute upstream unless a mature custom tier‑1 module already exists. |
+
+The full analysis — the tiers, AVM tradeoffs, repository choices, versioning
+rules, and design checklist — follows below.
+
+---
+
 ## The three‑tier module model
+
+**Verdict:** keep resource modules, enterprise pattern modules, and workload composition separate; conflating them is the fastest way to lose governance consistency.
 
 A mature ALZ implementation has **three tiers** of modules. Conflating them
 is the most common mistake.
@@ -78,6 +130,8 @@ The good news for tier 1 is that the work has largely been done for you.
 ---
 
 ## Azure Verified Modules (AVM)
+
+**Verdict:** treat AVM as the default tier‑1 source, but wrap it with your own tier‑2 patterns before exposing it broadly to enterprise consumers.
 
 [AVM](https://aka.ms/avm) is Microsoft's official, supported library of
 Bicep and Terraform modules. As of 2026 it covers the vast majority of common
@@ -176,6 +230,8 @@ module "storage" {
 
 ## Where do *your* (tier‑2) modules live?
 
+**Verdict:** publish enterprise pattern modules from a dedicated module repo and registry once more than a few teams consume them.
+
 AVM handles tier 1. The tier‑2 pattern modules — the ones that bake in your enterprise conventions — are yours to build and publish. Three viable patterns for where they live:
 
 ### A) Dedicated `alz-modules` repo + Git tag versioning
@@ -215,6 +271,8 @@ Whichever distribution mechanism you choose, it is only as trustworthy as the ve
 ---
 
 ## Versioning policy
+
+**Verdict:** use SemVer, automate releases, and require pinned consumer versions; never let a deployment consume a floating branch.
 
 Adopt **Semantic Versioning** (`MAJOR.MINOR.PATCH`) and define explicitly what
 each bump means *for an IaC module*:
@@ -259,6 +317,8 @@ A versioning process only works reliably if the modules themselves are well-stru
 
 ## Module design checklist
 
+**Verdict:** make pattern modules small, opinionated, documented, tested, and release-ready before other teams depend on them.
+
 A pattern module should:
 
 - [ ] Take **opinionated defaults** (tags, diagnostic settings, log analytics
@@ -277,6 +337,8 @@ A pattern module should:
 ---
 
 ## Naming and namespacing
+
+**Verdict:** group modules by domain and name each module for the pattern it delivers, not for every underlying resource it happens to contain.
 
 For your `alz-modules` repo, group by domain:
 
@@ -309,6 +371,8 @@ Naming discipline is one safeguard against entropy; the following are the patter
 
 ## Anti-patterns
 
+**Verdict:** most module failures come from postponing reuse, floating versions, or hiding too many behaviours behind one module API.
+
 * ❌ **Inlined modules copy-pasted between landing zones.** The "we'll DRY
   it later" trap. Promote to a shared module on the second use.
 * ❌ **Pinning to a branch name.** "It worked yesterday" is not a strategy.
@@ -323,6 +387,8 @@ Naming discipline is one safeguard against entropy; the following are the patter
 A mature module ecosystem — tiered correctly, versioned strictly, and published from a registry — is what makes the branching and promotion strategies in the next chapter operationally safe. Without pinned modules, "it worked in non-prod" is a coincidence rather than a guarantee; with them, the diff between environments is visible, auditable, and reversible. Chapter 04 picks up the story at the branch level, addressing how code flows from a developer laptop all the way to a production subscription.
 
 ## References
+
+Use these sources for the module catalogues, registry mechanics, and release conventions referenced above.
 
 * AVM — Azure Verified Modules: <https://aka.ms/avm>
 * AVM Bicep specs: <https://github.com/Azure/bicep-registry-modules>

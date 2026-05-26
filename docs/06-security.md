@@ -3,6 +3,7 @@
 **In this chapter:**
 
 - [How we got here](#how-we-got-here)
+- [Decision framework](#decision-framework)
 - [The threat model](#the-threat-model)
 - [Secrets in code — eliminate, don't manage](#secrets-in-code-eliminate-dont-manage)
 - [Branch protection that matters](#branch-protection-that-matters)
@@ -25,9 +26,9 @@
 
 [← 05 Authentication](05-authentication.md) · [Index](../README.md) · [07 State management →](07-state-management.md)
 
----
+**Recommendation in one paragraph.** Secure an ALZ IaC repo by eliminating long‑lived secrets first, then layering branch protection, signed provenance, pinned dependencies, isolated runners, hardened workflows, protected state, and policy gates. Treat every pipeline dependency and runner as a potential compromise path: use OIDC plus Key Vault instead of stored credentials, require CODEOWNERS and status checks before merge, pin every Action, module, and tool by immutable digest, and map regulated or sovereign controls directly to repo and pipeline enforcement. The rest of the chapter explains why these controls matter and how to choose them.
 
-Authentication stops the obvious attacker — the one who shouldn't have the key at all. But a mature IaC pipeline has a wider threat surface: secrets that drift into source code, dependencies quietly poisoned upstream, and runners that, if compromised, can cause more damage than a leaked credential ever could. This chapter addresses that surface systematically, working outward from your own code to the third‑party pieces your pipeline trusts.
+---
 
 ## How we got here
 
@@ -47,9 +48,39 @@ defence‑in‑depth model this chapter describes: keep secrets out of code,
 sign what you ship (Sigstore, SLSA attestations), pin every dependency
 by digest, and assume your CI runner will eventually be compromised.
 
-Those four imperatives map directly to the attack vectors worth defending against.
+Those four imperatives become the decision framework below: decide which controls are mandatory, where they run, and who owns exceptions.
+
+---
+
+## Decision framework
+
+Pick the security controls by answering these questions in order. The hard rules are non‑negotiable; the rest decide how much additional isolation, evidence, and compliance mapping your ALZ repo needs.
+
+1. **Have you eliminated long‑lived secrets from the repo and pipelines?**
+   * Hard rule: yes. Use OIDC for Azure authentication and Key Vault for application secrets; anything else should be treated as a temporary exception with an owner and expiry. See [05 authentication](05-authentication.md).
+
+2. **Which branch protection rules are mandatory?**
+   * Require CODEOWNERS review, at least one approval (two for foundation and policy), required status checks, stale‑review dismissal, conversation resolution, no force‑push or deletion, and re‑approval after changes from forks.
+
+3. **How will you secure the supply chain?**
+   * Pin GitHub Actions, modules, providers, and tools by immutable SHA or digest; enable dependency scanning and controlled update automation; publish SBOMs and signed release artefacts where your deployment process consumes build outputs.
+
+4. **Which runners execute sensitive plans and applies?**
+   * Use GitHub‑hosted larger runners with static IPs for ordinary workflows; use ephemeral, isolated self‑hosted runners only when production or regulated deployments need network controls that hosted runners cannot provide.
+
+5. **Are commits, tags, and artefacts signed?**
+   * Prefer Sigstore / `gitsign` for organisation‑wide keyless commit signing and artifact attestations; allow GPG or SSH signing where individuals need traditional key ownership.
+
+6. **If you are regulated or sovereign, which controls map to repo and pipeline enforcement?**
+   * Map SLZ, audit, residency, encryption, and separation‑of‑duties requirements to branch rules, policy gates, runner isolation, protected environments, and evidence artefacts before implementation starts.
+
+The full analysis below explains the threat paths behind those choices and the concrete controls that close them.
+
+---
 
 ## The threat model
+
+**Verdict:** assume attackers will target Git history, contributor accounts, runners, dependencies, state, and drift; every control below should map to one of those paths.
 
 For an IaC repo that controls an enterprise Azure estate, the realistic
 attack vectors are:
@@ -68,7 +99,9 @@ The mitigations below address each.
 
 ## Secrets in code — eliminate, don't manage
 
-The best secret is the one you never store. Combine these:
+**Verdict:** the only durable pattern is to eliminate long‑lived secrets from repos and pipelines; use OIDC for Azure auth and Key Vault for application secrets.
+
+Combine these:
 
 * **OIDC for cloud auth** (see [05 authentication](05-authentication.md)).
 * **Reference Key Vault for application secrets**, never inline them:
@@ -120,6 +153,8 @@ public the moment it was pushed.
 
 ## Branch protection that matters
 
+**Verdict:** require CODEOWNERS review, status checks, signed commits, stale‑review dismissal, linear history, and no force‑push or deletion on every protected branch.
+
 Keeping secrets out of the codebase is necessary but not sufficient. The second line of defence is ensuring that a compromised contributor account still cannot merge a malicious change unilaterally.
 
 | Setting | Recommended |
@@ -128,6 +163,7 @@ Keeping secrets out of the codebase is necessary but not sufficient. The second 
 | Require review approvals | ≥ 1 (≥ 2 for foundation/policy) |
 | Require review from CODEOWNERS | ✅ |
 | Dismiss stale reviews on new commits | ✅ |
+| Require re‑approval after fork updates | ✅ |
 | Require signed commits | ✅ (Sigstore/gitsign or GPG) |
 | Require linear history | ✅ |
 | Require status checks | lint, plan, security‑scan, policy |
@@ -143,6 +179,8 @@ With your own contributors controlled, the remaining attack surface is the code 
 ---
 
 ## Supply‑chain hygiene
+
+**Verdict:** pin every external dependency by immutable digest or SHA, automate safe updates, and keep evidence of what the pipeline consumed.
 
 ### Pin everything by digest, not by tag
 
@@ -215,7 +253,9 @@ detectable.
 
 ## Signed commits
 
-Require commits to be signed and verified. Two practical options:
+**Verdict:** require commits and release tags to be signed and verified; use Sigstore / `gitsign` as the default for organisation‑wide enforcement.
+
+Two practical options:
 
 * **Sigstore / `gitsign`** — keyless, OIDC‑backed signing. No GPG keys to
   manage; signatures verifiable on GitHub.
@@ -231,9 +271,13 @@ In CI:
     git log --pretty='%H %G?' "$base..$head" | awk '$2 != "G" { print "unsigned: "$1; exit 1 }'
 ```
 
+Signatures make unauthorized source changes visible; runner isolation limits what a compromised job can do after signed code starts executing.
+
 ---
 
 ## Securing CI runners
+
+**Verdict:** use GitHub‑hosted larger runners with static IPs for most jobs, and reserve ephemeral isolated self‑hosted runners for production or regulated deployments.
 
 GitHub‑hosted runners are convenient but have caveats for sensitive estates:
 
@@ -256,9 +300,13 @@ foundation/prod deploys. Self‑hosted runners must be:
 * Authenticated via a Managed Identity (no PAT for runner registration —
   use the GitHub App‑based runner registration).
 
+Runner isolation narrows blast radius; workflow hardening reduces the chance that a job becomes malicious in the first place.
+
 ---
 
 ## Workflow hardening (GitHub Actions)
+
+**Verdict:** treat workflow YAML as production security code: start with least privilege, bound execution, gate environments, and remove checkout credentials.
 
 Securing the runner infrastructure is necessary but not sufficient — the workflow YAML itself is an attack surface. A handful of settings make an outsized difference.
 
@@ -293,8 +341,9 @@ Even a hardened, well‑scoped workflow produces an artefact that deserves its o
 
 ## State file security (Terraform)
 
-State files **contain secrets in cleartext** by default — DB passwords,
-storage keys, certs. Treat the state backend as you would a Key Vault:
+**Verdict:** Terraform state files **contain secrets in cleartext** by default, so secure the backend like a Key Vault.
+
+State can include DB passwords, storage keys, and certs. Treat the state backend as you would a Key Vault:
 
 * Backend storage account: **firewall‑restricted**, **private endpoint**,
   **CMK encryption**, **soft‑delete + versioning enabled**, **diagnostic
@@ -312,6 +361,8 @@ Locking down the artefacts your pipeline produces addresses one dimension of com
 
 ## Policy / compliance gates
 
+**Verdict:** policy must be a merge‑blocking CI check, not a deployment afterthought.
+
 Treat policy as a **CI check**, not a deployment afterthought:
 
 * Custom Azure Policy definitions live in version control alongside their
@@ -323,6 +374,8 @@ Treat policy as a **CI check**, not a deployment afterthought:
 ---
 
 ## Incident playbook (one paragraph)
+
+**Verdict:** assume a credential leak or compromised PR will happen; document the response order before the incident.
 
 When (not if) something happens — leaked credential, compromised PR — the
 response order is:
@@ -339,6 +392,8 @@ need it, you won't have time to invent it.
 ---
 
 ## Sovereign Landing Zone (SLZ) — when compliance demands more
+
+**Verdict:** treat SLZ as a composable compliance overlay on ALZ, and map each sovereignty requirement to policy, evidence, and pipeline controls.
 
 The **Sovereign Landing Zone** is not a separate product — it's a **variant
 layer** that sits on top of the standard ALZ. It adds sovereignty controls
@@ -362,6 +417,8 @@ scratch.
 ---
 
 ## Protecting vended resources — defence in depth
+
+**Verdict:** protect platform‑vended resources with overlapping controls — deny assignments, scoped RBAC, and deny policies — because no single guardrail is enough.
 
 When subscription vending creates baseline resources (resource groups,
 networking, diagnostic settings), the platform team needs to prevent
@@ -392,6 +449,8 @@ still protect the baseline.
 ---
 
 ## Anti‑patterns
+
+These shortcuts are red flags because they trade short‑term delivery speed for persistent compromise paths.
 
 * ❌ **Adding `--allow-secret` patterns to bypass scanning.** That's how
   real secrets slip through.

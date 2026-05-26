@@ -3,7 +3,7 @@
 **In this chapter:**
 
 - [How we got here](#how-we-got-here)
-- [The two questions you must answer](#the-two-questions-you-must-answer)
+- [Decision framework](#decision-framework)
 - [Recommended: trunk‑based + folder‑per‑environment](#recommended-trunkbased-folderperenvironment)
 - [Alternative: branch‑per‑environment ("GitFlow for ops")](#alternative-branchperenvironment-gitflow-for-ops)
 - [Environment topology](#environment-topology)
@@ -21,7 +21,7 @@
 
 [← 03 Modules & registries](03-modules-and-registries.md) · [Index](../README.md) · [05 Authentication →](05-authentication.md)
 
-Infrastructure changes are uniquely dangerous in one regard: unlike application code, a broken deploy can leave the network in a half-configured state that affects every workload sitting on top of it. A solid branching and promotion model is the operational safety net — it determines how much blast radius is possible from a single commit, how quickly a rollback can happen, and whether auditors can trace who approved what. This chapter recommends a specific model, acknowledges the alternative honestly, and explains how to make promotion mechanics reliable rather than ceremonial.
+**Recommendation in one paragraph.** Use **trunk‑based development with folder‑per‑environment configuration** as the default ALZ promotion model: `main` is the source of truth, environment differences live in reviewed parameter files, and promotion is a gated deployment sequence from non‑prod to prod. Branch‑per‑environment is a fallback for teams whose compliance model explicitly requires branch‑level releases; everyone else should avoid the drift, cherry‑pick debt, and unclear rollback story it creates. Infrastructure changes are uniquely dangerous because a broken deploy can leave the network in a half‑configured state that affects every workload above it, so the branching model must minimise blast radius, make rollback obvious, and leave an auditable trail of who approved what.
 
 ---
 
@@ -57,22 +57,28 @@ the dominant pattern by the early 2020s.
 >
 > **Ephemeral environments** — short‑lived, disposable environments (e.g. per‑PR) spun up for testing and torn down automatically when no longer needed.
 
-The branch‑per‑environment model
-still survives in regulated industries that map approval to branches —
-usually because the auditors learned Git from a 2015 tutorial. Whichever
-history your team carries, the two questions below cut through the legacy.
+The branch‑per‑environment model still survives in regulated industries that map approval to branches — usually because the auditors learned Git from a 2015 tutorial. Whichever history your team carries, answer the framework below before choosing mechanics.
 
-## The two questions you must answer
+---
 
-1. **Branching model:** trunk‑based vs. environment‑per‑branch (GitFlow‑ish)?
-2. **Environment promotion:** how do you guarantee that what was tested in
-   non‑prod is what hits prod?
+## Decision framework
 
-The answers are coupled — choose them together. For the vast majority of ALZ deployments, they resolve to the same place.
+Choose the branching and promotion model by answering these questions in order. The answers are coupled — choose them together. For the vast majority of ALZ deployments, they converge on trunk‑based development with folder‑per‑environment configuration.
+
+1. **Monorepo or repo‑per‑environment?** Keep environments in the same ALZ/platform repo by default so one PR can show the non‑prod and prod intent together; split repos only when environment ownership, permissions, or audit boundaries are genuinely different.
+2. **Branch‑per‑environment or folder‑per‑environment?** Prefer folders such as `envs/nonprod/` and `envs/prod/` on `main`; use long‑lived environment branches only when compliance explicitly requires branch‑level releases.
+3. **What environment topology do you need?** Define the minimum set of durable environments — usually sandbox, non‑prod/staging, prod, and optionally DR — and back prod and non‑prod with separate subscriptions or management groups.
+4. **What exactly gets promoted?** Promote the same Git SHA, pinned module versions, and pipeline template through the sequence; environment‑specific plan artifacts may differ, but they must be generated from the same reviewed source.
+5. **What PR requirements make `main` safe?** Require review, status checks, CODEOWNERS approval for `envs/prod/` and modules, current branches, signed commits where required, and no force pushes.
+6. **How will drift and exceptions be handled?** Detect drift with scheduled plans, treat unexplained differences as incidents, and use feature flags or parameter gates instead of leaving unfinished work off to the side in long‑lived branches.
+
+The sections below unpack those decisions, starting with the recommended model and then the branch‑per‑environment exception.
 
 ---
 
 ## Recommended: trunk‑based + folder‑per‑environment
+
+**Verdict:** use trunk‑based development with folder‑per‑environment configuration as the ALZ default because it keeps one source of truth while making environment differences explicit and reviewable.
 
 The mental model: **`main` is the source of truth for every environment**;
 the difference between environments lives in parameter files, not in
@@ -150,6 +156,8 @@ Set `enable_new_rules = false` in `envs/prod/terraform.tfvars` until ready.
 
 ## Alternative: branch‑per‑environment ("GitFlow for ops")
 
+**Verdict:** use branch‑per‑environment only when an external compliance or release process requires branch‑level promotion; otherwise it creates avoidable drift and cherry‑pick risk.
+
 ```
 main      → prod
 release/* → staging
@@ -202,11 +210,13 @@ then, push back hard.
 > expected. There is no single right answer — the best model depends on
 > your release cadence, audit requirements, and team discipline.
 
-Whichever branching model you commit to, the next question is what your environment estate actually looks like — how many environments, what each one is for, and who controls access to it.
+Once the branching model is explicit, define the environment estate it will protect — how many environments exist, what each one is for, and who controls access to it.
 
 ---
 
 ## Environment topology
+
+**Verdict:** keep the durable environment set small, named, and subscription‑separated so each boundary has a clear purpose and blast radius.
 
 Define your environments **explicitly** and document why each exists. A common
 pattern:
@@ -234,7 +244,7 @@ With the environment set defined, the question is how a change moves between the
 
 ## Promotion mechanics
 
-The promotion contract: **what you tested is what you ship.**
+**Verdict:** promotion must carry the same reviewed source, module versions, and pipeline logic forward so **what you tested is what you ship**.
 
 ### Promote the artifact, not the source
 
@@ -283,6 +293,8 @@ Of course, that PR diff only means something if the review process attached to i
 
 ## PR requirements
 
+**Verdict:** make `main` safe by requiring review, automated evidence, production ownership approval, and branch protection before any environment can change.
+
 Recommended branch protection on `main`:
 
 * ✅ Require pull request before merging.
@@ -299,6 +311,8 @@ Recommended branch protection on `main`:
 ---
 
 ## Drift between environments
+
+**Verdict:** assume drift will happen and design the operating model to detect it quickly, explain it, and treat unexplained differences as incidents.
 
 Drift is inevitable. Make it visible:
 
@@ -318,6 +332,8 @@ There is, however, a complementary pattern that sidesteps long-lived environment
 
 ## Ephemeral environments
 
+**Verdict:** use ephemeral environments for PR‑scoped validation of modules and platform slices, not as full disposable copies of the entire ALZ.
+
 For pattern modules and platform components, spin up a **PR‑scoped
 environment** automatically:
 
@@ -332,6 +348,8 @@ expensive. It's a per‑PR slice of the modules being changed.
 ---
 
 ## Keeping environment configurations DRY — Terragrunt and alternatives
+
+**Verdict:** start with native `envs/` folders, parameter files, and CI matrices; add Terragrunt, Atmos, or Terramate only when repeated environment boilerplate becomes measurable pain.
 
 Modules solve the DRY problem for *resource definitions*. A separate DRY
 problem lurks in *environment configurations*: the backend blocks, provider
@@ -424,6 +442,8 @@ point.
 ---
 
 ## Anti‑patterns
+
+**Verdict:** avoid shortcuts that bypass non‑prod validation, shared state isolation, artifact promotion, or independent review.
 
 * ❌ **`main` deploys straight to prod with no non‑prod stop.** The classic
   "we'll add staging later".

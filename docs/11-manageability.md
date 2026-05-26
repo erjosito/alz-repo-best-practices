@@ -3,6 +3,7 @@
 **In this chapter:**
 
 - [How we got here](#how-we-got-here)
+- [Decision framework](#decision-framework)
 - [CODEOWNERS — your first line of governance](#codeowners-your-first-line-of-governance)
 - [Drift detection](#drift-detection)
 - [Blast radius management](#blast-radius-management)
@@ -20,11 +21,13 @@
 
 [← 10 Code quality](10-code-quality.md) · [Index](../README.md) · [12 Naming & tagging →](12-naming-and-tagging.md)
 
-The real test of any ALZ implementation is not whether the first `apply` succeeds — it's whether the system stays coherent under the steady pressure of operational reality: teams bypassing the pipeline "just this once", subscriptions that were meant to be temporary becoming permanent, and identities that quietly accumulate permissions like barnacles. This chapter tackles the day-2 problem head-on, covering ownership governance, drift detection, blast-radius control, lifecycle management, and the humble runbook that saves you at 2 a.m.
+**Recommendation in one paragraph.** Treat manageability as a first-class ALZ design concern: require team-based CODEOWNERS review, run scheduled drift detection from `main`, keep each apply's blast radius narrow, tightly scope the IaC pipeline identity, version runbooks in the repo, and measure the deployment system like a production service. The real test of any ALZ implementation is not whether the first `apply` succeeds — it is whether the system stays coherent under operational pressure: teams bypassing the pipeline "just this once", subscriptions that were meant to be temporary becoming permanent, and identities that quietly accumulate permissions like barnacles.
 
 ---
 
 ## How we got here
+
+Modern ALZ operations should be boring by design: ownership is explicit, drift is visible or blocked, and privileged human action is exceptional.
 
 The first generation of "infrastructure as code" was really
 *infrastructure as code, plus quite a lot of clicking when nobody was
@@ -61,7 +64,47 @@ runbook. This chapter shows the building blocks.
 >
 > **Bus factor** — the number of team members who would need to be unavailable before the project stalls. A bus factor of 1 means a single person's absence can halt operations.
 
+---
+
+## Decision framework
+
+Answer these day-2 questions before the first production landing zone goes live; the safe default is team-owned review, scheduled drift detection, narrow state, least-privilege automation, versioned runbooks, and pipeline health metrics.
+
+1. **How is CODEOWNERS structured?**
+   * Use path globs to assign ownership to teams, not individuals.
+   * Require CODEOWNERS review through branch protection on protected paths.
+   * Keep ownership rules short enough to review quarterly; generate them from a source of truth if the repo grows large.
+
+2. **How do you detect drift?**
+   * Run a scheduled `plan` / `what-if` from `main` and alert on diffs.
+   * For legitimate drift, codify or import it according to policy; for illegitimate drift, revert it and fix the process gap.
+   * Document which Azure Policy effects are intentionally ignored or codified.
+
+3. **How do you keep blast radius small?**
+   * Use many small state files, normally one per workload per environment.
+   * Run one apply per workload per environment rather than estate-wide applies.
+   * Add Deployment Stacks `denySettings`, locks, soft delete, and purge protection for critical resources.
+
+4. **Who has access to the IaC system itself?**
+   * Scope the CI service principal only to the management group or subscription level it actually needs.
+   * Give humans read access for diagnosis and PIM-controlled break-glass write access only.
+   * Alert on owner assignments, PIM elevation, and unusual service principal sign-ins.
+
+5. **Where do runbooks live?**
+   * Keep runbooks in an in-repo `/runbooks/` folder, versioned with the code they describe.
+   * Make them short, copy-pasteable, and verified during game days or incident reviews.
+
+6. **How do you measure pipeline health?**
+   * Track lead time, deployment frequency, change failure rate, and time to restore on the IaC repo itself.
+   * Alert when production applies fail, drift detection fires, or expected pipelines stop running.
+
+The detailed practices behind those answers follow below.
+
+---
+
 ## CODEOWNERS — your first line of governance
+
+Structure `CODEOWNERS` as path globs to teams, not individuals, and make those reviews mandatory on protected paths.
 
 `CODEOWNERS` enforces *who must approve* a PR for any given path. In a
 layered repo it's the difference between governance and chaos.
@@ -104,6 +147,8 @@ Ownership governance tells you *who* must approve a deliberate change — but it
 ---
 
 ## Drift detection
+
+Run drift detection from `main` on a schedule, alert on every unexpected diff, and either codify, import, or revert based on policy.
 
 Drift is changes made to Azure resources outside your IaC. It happens — a
 firefighter clicks in the portal, an automation script bypasses the
@@ -185,7 +230,9 @@ Detecting drift is valuable; limiting how much damage a single bad change can ca
 
 ## Blast radius management
 
-The size of "what one bad apply can break." Strategies:
+Keep blast radius small by making state granular, applies narrow, and destructive changes hard to execute accidentally.
+
+Blast radius is the size of "what one bad apply can break." Strategies:
 
 ### 1. State‑file granularity
 
@@ -237,6 +284,8 @@ Architectural controls limit the structural blast radius. But those controls are
 
 ## RBAC for the IaC system itself
 
+The IaC system should have only the permissions it needs, with CI identities scoped by environment and human write access treated as break-glass.
+
 Day‑2 RBAC concerns are different from day‑1:
 
 | Identity | Permissions |
@@ -263,6 +312,8 @@ Role assignments are a snapshot of *who can do what right now*. The complementar
 ---
 
 ## Lifecycle of a landing zone
+
+A landing zone needs an explicit create-change-retire lifecycle in the repo, including a first-class decommission path.
 
 Define an explicit lifecycle. The repo should support each transition:
 
@@ -305,7 +356,9 @@ A well-defined lifecycle tells you *what* needs to happen at each stage. A runbo
 
 ## Runbooks (in‑repo)
 
-Every IaC repo benefits from a `docs/runbooks/` folder with one‑pagers
+Runbooks should live in the repository and be versioned with the IaC they operate.
+
+Every IaC repo benefits from a `/runbooks/` folder with one‑pagers
 for the operations your team actually does:
 
 * `credential-leak.md`
@@ -332,6 +385,8 @@ Runbooks address the sudden, high-pressure operational events. Cost management a
 
 ## Cost & usage management
 
+Cost and usage signals should be visible from the repo so landing-zone owners see spend before finance escalation does.
+
 Cost is a manageability concern; surface it in the repo:
 
 * Tag every resource with `CostCenter` and `Owner` — enforced via the
@@ -350,6 +405,8 @@ Knowing what your infrastructure costs is one signal. Knowing how the system tha
 
 ## Observability of the IaC pipeline itself
 
+Measure the IaC pipeline itself with DORA-style health metrics because a broken deployment system is a production incident.
+
 The pipeline is a service; treat it as one:
 
 * Send pipeline metrics to Application Insights or LAW: run duration per
@@ -364,6 +421,8 @@ The pipeline is a service; treat it as one:
 ---
 
 ## Anti‑patterns
+
+Most day-2 failures come from invisible ownership, invisible drift, or unbounded permissions; treat the following as design smells.
 
 * ❌ **No drift detection.** You are flying blind. A misconfiguration can
   exist for months before someone trips over it.
@@ -383,6 +442,8 @@ The pipeline is a service; treat it as one:
 Manageability is where the gap between "it worked on day one" and "it still works reliably at year three" lives. The practices in this chapter — ownership via CODEOWNERS, scheduled drift detection, Deployment Stacks to block drift at the ARM layer, PIM-bounded access, structured landing-zone lifecycles, in-repo runbooks, and pipeline observability — do not all need to be in place before you ship. Start with drift detection and CODEOWNERS; the rest grows naturally as the estate matures. Chapter 12 turns to the seemingly mundane but genuinely load-bearing question of what you call things — and what metadata travels with them.
 
 ## References
+
+Use these references to validate the platform controls, repository governance, and operational metrics described above.
 
 * GitHub, *About code owners*:
   <https://docs.github.com/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners>

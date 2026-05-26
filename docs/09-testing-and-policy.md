@@ -3,6 +3,7 @@
 **In this chapter:**
 
 - [How we got here](#how-we-got-here)
+- [Decision framework](#decision-framework)
 - [The testing pyramid for IaC](#the-testing-pyramid-for-iac)
 - [Layer 1 — Static checks (every commit)](#layer-1-static-checks-every-commit)
 - [Layer 2 — Policy‑as‑code on the plan](#layer-2-policyascode-on-the-plan)
@@ -18,7 +19,7 @@
 
 [← 08 CI/CD pipeline patterns](08-cicd-pipelines.md) · [Index](../README.md) · [10 Code quality →](10-code-quality.md)
 
-A pipeline that merely runs `terraform apply` is a deployment button, not a quality gate. What separates a mature IaC workflow from a fragile one is everything that happens *before* the apply: the linting that catches silly mistakes, the policy check that enforces enterprise rules, and the integration test that proves the module actually works. This chapter maps out that defence-in-depth pyramid and explains where each layer pays its way.
+**Recommendation in one paragraph.** Treat testing as a three-layer quality gate: run static checks on every commit, enforce policy-as-code against the resolved plan before merge, and reserve live integration tests for foundation and reusable modules where fidelity justifies the cost. Use PR-time policy and Azure Policy together as defence in depth; neither replaces the other. Target 100% policy and integration coverage for foundation, roughly 80% unit/plan-policy coverage for shared modules, and plan policy plus selective integration for landing-zone compositions.
 
 ---
 
@@ -41,8 +42,8 @@ finally landed in Terraform 1.6 (October 2023), making real integration
 testing accessible to anyone who could write HCL. The result: the modern
 IaC pipeline is a **defence‑in‑depth pyramid** — static linting, plan‑
 time policy, integration tests on modules, and runtime Azure Policy as
-the safety net. Here is what that pyramid looks like in practice, and
-where each layer belongs.
+the safety net. The decision framework below turns that history into
+specific tool choices before the layer-by-layer analysis.
 
 > 📘 **Key terms**
 >
@@ -62,7 +63,66 @@ where each layer belongs.
 >
 > **Smoke test** — a lightweight, fast test that checks whether the most critical path works at all (e.g. "did the deployment succeed and is the resource reachable?"), without exhaustive validation.
 
+---
+
+## Decision framework
+
+Pick the test strategy by answering these questions in order. The goal is
+not to maximise tools; it is to put the cheapest reliable gate in front of
+each class of failure and reserve expensive live tests for the layers where
+they buy real confidence.
+
+1. **Which static-check tools do you mandate?**
+   * Terraform estates should require `terraform fmt`, `terraform validate`,
+     `tflint`, `terraform-docs`, and secret scanning.
+   * Bicep estates should require `bicep format`, `bicep build`, the Bicep
+     linter, PSRule where applicable, and secret scanning.
+   * Cross-cutting checks should include YAML/JSON/Markdown formatting,
+     `actionlint` for GitHub Actions, and security scanning for workflows.
+
+2. **Which policy-as-code engine evaluates the plan?**
+   * Pick one primary engine for the PR gate so developers get a consistent
+     failure model.
+   * Use **PSRule for Azure** as the Azure-first default, **Checkov** for
+     broad multi-IaC scanning, and **Conftest/OPA** when you need highly
+     custom organisation-specific rules.
+   * Combining engines is acceptable, but only when each has a clear job and
+     duplicate findings are suppressed.
+
+3. **How much live integration testing is justified?**
+   * Foundation and shared modules deserve live tests because their blast
+     radius is high and they are reused everywhere.
+   * Workload compositions usually start with plan/policy checks and add
+     Terratest, `terraform test`, or `az deployment what-if` smoke tests only
+     for complex module interactions or high-risk changes.
+   * Run live tests in a sandbox subscription with per-PR isolation and
+     automatic teardown.
+
+4. **How do you reconcile policy-as-code with Azure Policy?**
+   * Treat them as defence in depth: policy-as-code gives pre-deploy PR
+     feedback, while Azure Policy enforces continuously after deployment and
+     catches portal/CLI drift.
+   * Neither replaces the other; the sustainable pattern is to generate both
+     from the same control intent where possible.
+
+5. **What is your coverage target by layer?**
+   * Foundation: 100% policy coverage plus integration tests for critical
+     deployment paths.
+   * Modules: about 80% unit/plan-policy coverage plus integration tests for
+     major code paths.
+   * Landing zones: static and plan-policy coverage for every PR, with
+     selective integration tests for complex compositions.
+
+The full analysis — why each layer exists, which tools fit, and where the
+tradeoffs appear — follows below.
+
+---
+
 ## The testing pyramid for IaC
+
+**Verdict:** Build the IaC gate as a pyramid: static checks everywhere,
+plan-time policy for every PR, and live tests only where the extra cost
+buys confidence that cheaper gates cannot provide.
 
 ```mermaid
 flowchart TB
@@ -80,14 +140,17 @@ flowchart TB
     class L3 l3
 ```
 
-Bottom is cheap and fast; top is expensive and slow. Push as many checks
-as possible to the bottom.
+The bottom is cheap and fast; the top is expensive and slow. Push every
+check downward until it loses fidelity, then keep only the remaining
+high-value scenarios at the live-test layer.
 
 ---
 
 ## Layer 1 — Static checks (every commit)
 
-Run on every developer machine via pre‑commit and again in CI.
+**Verdict:** Static checks should be mandatory on every developer machine
+and every CI run because they are the fastest way to catch syntax,
+formatting, documentation, and workflow mistakes before review.
 
 ### Terraform
 
@@ -120,8 +183,9 @@ Static checks catch what the *author* got wrong. The next layer enforces what th
 
 ## Layer 2 — Policy‑as‑code on the plan
 
-This is where you enforce *enterprise rules* at PR time, before any
-Azure resource is created.
+**Verdict:** Enforce enterprise rules against the resolved plan at PR time
+so non-compliant resources are rejected before anything is created in
+Azure.
 
 ### What to enforce
 
@@ -213,8 +277,9 @@ Plan-time policy stops non-compliant configuration from ever touching Azure. For
 
 ## Layer 3 — Live integration tests
 
-Deploy a real instance, assert behaviour, destroy. Reserved for **modules**,
-not workloads.
+**Verdict:** Deploy, assert, and destroy real infrastructure only for
+foundation and reusable modules by default; add workload integration tests
+when composition risk is higher than the CI cost.
 
 ### Terraform
 
@@ -283,6 +348,10 @@ At this point you have checks at every stage of development. There is still a ga
 ---
 
 ## Policy‑as‑code vs Azure Policy
+
+**Verdict:** Treat PR-time policy and Azure Policy as defence in depth from
+a shared control intent; using only one leaves either developer feedback or
+runtime enforcement uncovered.
 
 There are **two** layers of policy:
 
@@ -493,12 +562,16 @@ The responsible lifecycle:
 
 ## Test coverage targets
 
-Pragmatic, not dogmatic:
+**Verdict:** Set coverage targets by layer, not by vanity percentage:
+foundation needs exhaustive policy and integration coverage, modules need
+broad unit and plan-policy coverage, and landing zones need plan-policy
+coverage plus selective live tests.
 
 | Artifact | Minimum coverage |
 |----------|------------------|
-| Tier‑2 pattern modules | Static + plan‑policy + ≥ 1 integration test per major code path |
-| Tier‑3 workload composition | Static + plan‑policy. No need for integration tests if modules are tested. |
+| Foundation / policy layer | 100% policy coverage + integration tests for critical deployment paths |
+| Tier‑2 pattern modules | Static + ≥80% unit / plan‑policy coverage + ≥ 1 integration test per major code path |
+| Tier‑3 workload composition | Static + plan‑policy on every PR + selective integration tests for complex or high‑risk compositions |
 | Custom Azure Policy | Compliance test against a fixture resource that should pass + a fixture that should fail |
 | Pipeline templates | Unit test the templates with `act` or by running them against a sample repo |
 
@@ -507,6 +580,9 @@ These targets are intentionally conservative. A 45-minute test suite that engine
 ---
 
 ## Anti‑patterns
+
+**Verdict:** The failures to avoid are late feedback, unenforced findings,
+and tests so slow or brittle that engineers route around them.
 
 * ❌ **All policy lives in Azure Policy.** Developers find out at deploy
   time, after they've waited for a 15‑min `terraform plan` to come back.
